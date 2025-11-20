@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Bill of Material - ERP Tools</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header>
+  <h1>Bill of Material (BOM)</h1>
+  <p>Perhitungan kebutuhan material untuk produksi (single-level BOM).</p>
+</header>
+
+<main>
+  <a href="index.html" class="back-link">&larr; Kembali ke Menu Utama</a>
+
+  <section class="form-section">
+    <h2>Input BOM</h2>
+
+    <label>Nama Produk
+      <input type="text" id="productName" placeholder="Contoh: Meja Kayu">
+    </label>
+
+    <label>Jumlah produk yang akan diproduksi
+      <input type="number" id="productQty" min="1" value="10">
+    </label>
+
+    <p>Daftar komponen (satu per baris, format: <code>NamaKomponen, jumlahPerUnit</code>)<br>
+       Contoh:<br>
+       <code>Kaki Meja,4</code><br>
+       <code>Daun Meja,1</code><br>
+       <code>Baut,16</code>
+    </p>
+    <textarea id="componentsInput" rows="8" placeholder="Kaki Meja,4&#10;Daun Meja,1&#10;Baut,16"></textarea>
+
+<button onclick="hitungBOM()"><span>Hitung Kebutuhan Material</span></button>
+
+    <div id="result" class="result" style="display:none;"></div>
+
+    <div class="chart-container">
+      <canvas id="bomChart"></canvas>
+    </div>
+  </section>
+</main>
+
+<script>
+let bomChart = null;
+
+function hitungBOM() {
+  const productName = document.getElementById('productName').value.trim() || 'Produk';
+  const productQty = parseInt(document.getElementById('productQty').value, 10);
+  const rawComp = document.getElementById('componentsInput').value.trim();
+
+  if (!rawComp || isNaN(productQty) || productQty <= 0) {
+    alert('Masukkan nama komponen dan jumlah produksi yang valid.');
+    return;
+  }
+
+  const lines = rawComp.split('\n').map(x => x.trim()).filter(x => x);
+  const components = [];
+
+  lines.forEach(line => {
+    const parts = line.split(',').map(x => x.trim());
+    if (parts.length !== 2) return;
+    const name = parts[0];
+    const qtyPerUnit = parseFloat(parts[1]);
+    if (!name || isNaN(qtyPerUnit)) return;
+    components.push({ name, qtyPerUnit });
+  });
+
+  if (components.length === 0) {
+    alert('Format komponen tidak valid.');
+    return;
+  }
+
+  let tableHtml = '<table><tr><th>Komponen</th><th>Qty per Unit</th><th>Qty Total</th></tr>';
+  const labels = [];
+  const totals = [];
+
+  components.forEach(c => {
+    const total = c.qtyPerUnit * productQty;
+    labels.push(c.name);
+    totals.push(total);
+    tableHtml += `<tr>
+      <td>${c.name}</td>
+      <td>${c.qtyPerUnit}</td>
+      <td>${total}</td>
+    </tr>`;
+  });
+  tableHtml += '</table>';
+
+  const report = `
+    <h2>Hasil Perhitungan BOM</h2>
+    <p>Produk: <strong>${productName}</strong><br>
+    Jumlah produksi: <strong>${productQty}</strong> unit</p>
+    ${tableHtml}
+    <p><strong>Laporan / Kesimpulan:</strong><br>
+    Untuk memproduksi <strong>${productQty}</strong> unit 
+    <strong>${productName}</strong>, dibutuhkan komponen seperti pada tabel di atas. 
+    Nilai total setiap komponen diperoleh dari 
+    <em>jumlah per unit × jumlah produksi</em>.</p>
+  `;
+
+  const resDiv = document.getElementById('result');
+  resDiv.innerHTML = report;
+  resDiv.style.display = 'block';
+
+  if (bomChart) bomChart.destroy();
+  const ctx = document.getElementById('bomChart').getContext('2d');
+  bomChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Kebutuhan Total Komponen',
+        data: totals
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: { legend: { display: true } }
+    }
+  });
+}
+
+ // Animasi global untuk semua halaman
+  document.addEventListener("DOMContentLoaded", () => {
+    // efek fade-in body
+    document.body.classList.add("page-loaded");
+
+    // animasi kartu menu (di index) dan form-section (di halaman lain)
+    const animatedBlocks = document.querySelectorAll(".card, .form-section");
+    animatedBlocks.forEach((el, idx) => {
+      el.style.animationDelay = (idx * 0.08) + "s";
+      el.classList.add("slide-up");
+    });
+
+    // animasi klik tombol (ripple sederhana)
+    document.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const rect = btn.getBoundingClientRect();
+        const circle = document.createElement("span");
+        const diameter = Math.max(rect.width, rect.height);
+        const radius = diameter / 2;
+
+        circle.style.width = circle.style.height = `${diameter}px`;
+        circle.style.position = "absolute";
+        circle.style.left = `${e.clientX - rect.left - radius}px`;
+        circle.style.top = `${e.clientY - rect.top - radius}px`;
+        circle.style.borderRadius = "50%";
+        circle.style.pointerEvents = "none";
+        circle.style.background = "rgba(255,255,255,0.25)";
+        circle.style.transform = "scale(0)";
+        circle.style.opacity = "0.85";
+        circle.style.transition = "transform 0.35s ease-out, opacity 0.4s ease-out";
+
+        btn.style.position = "relative";
+        btn.appendChild(circle);
+
+        requestAnimationFrame(() => {
+          circle.style.transform = "scale(1.6)";
+          circle.style.opacity = "0";
+        });
+
+        setTimeout(() => circle.remove(), 420);
+      });
+    });
+  });
+</script>
+</body>
+</html>

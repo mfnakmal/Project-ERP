@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Metode SAW - ERP Tools</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header>
+  <h1>Metode SAW</h1>
+  <p>Sistem pendukung keputusan dengan pembobotan kriteria.</p>
+</header>
+
+<main>
+  <a href="index.html" class="back-link">&larr; Kembali ke Menu Utama</a>
+
+  <section class="form-section">
+    <h2>Input Data SAW</h2>
+    <label>Daftar alternatif (satu per baris)
+      <textarea id="altsInput" rows="4" placeholder="Supplier A&#10;Supplier B&#10;Supplier C"></textarea>
+    </label>
+
+    <label>Bobot kriteria (pisahkan dengan koma)
+      <input type="text" id="weightsInput" placeholder="Contoh: 0.4,0.3,0.3">
+    </label>
+
+    <label>Matriks nilai (satu baris per alternatif, nilai pisahkan dengan koma)
+      <textarea id="matrixInput" rows="6" placeholder="80,70,90&#10;75,85,80&#10;90,60,85"></textarea>
+    </label>
+
+    <button onclick="hitungSAW()"><span>Hitung SAW</span></button>
+
+    <div id="result" class="result" style="display:none;"></div>
+
+    <div class="chart-container">
+      <canvas id="sawChart"></canvas>
+    </div>
+  </section>
+</main>
+
+<script>
+let sawChart = null;
+
+function hitungSAW() {
+  const altsRaw = document.getElementById('altsInput').value.trim();
+  const weightsRaw = document.getElementById('weightsInput').value.trim();
+  const matrixRaw = document.getElementById('matrixInput').value.trim();
+
+  if (!altsRaw || !weightsRaw || !matrixRaw) {
+    alert('Semua field harus diisi.');
+    return;
+  }
+
+  const alts = altsRaw.split('\n').map(x => x.trim()).filter(x => x);
+  const weights = weightsRaw.split(',')
+    .map(x => parseFloat(x.trim()))
+    .filter(x => !isNaN(x));
+
+  const matrixLines = matrixRaw.split('\n').map(x => x.trim()).filter(x => x);
+  const matrix = matrixLines.map(line =>
+    line.split(',').map(x => parseFloat(x.trim())).filter(x => !isNaN(x))
+  );
+
+  if (alts.length !== matrix.length) {
+    alert('Jumlah baris matriks harus sama dengan jumlah alternatif.');
+    return;
+  }
+
+  if (matrix[0].length !== weights.length) {
+    alert('Jumlah bobot harus sama dengan jumlah kriteria.');
+    return;
+  }
+
+  const m = alts.length;      // jumlah alternatif
+  const n = weights.length;   // jumlah kriteria
+
+  // 1. Hitung nilai maksimum per kriteria (anggap semua benefit criteria)
+  const maxPerKriteria = Array(n).fill(0);
+  for (let j = 0; j < n; j++) {
+    let maxVal = 0;
+    for (let i = 0; i < m; i++) {
+      if (matrix[i][j] > maxVal) maxVal = matrix[i][j];
+    }
+    maxPerKriteria[j] = maxVal || 1; // hindari pembagian 0
+  }
+
+  // 2. Normalisasi matriks: r_ij = x_ij / max_j
+  const normalized = [];
+  for (let i = 0; i < m; i++) {
+    const rowNorm = [];
+    for (let j = 0; j < n; j++) {
+      rowNorm.push(matrix[i][j] / maxPerKriteria[j]);
+    }
+    normalized.push(rowNorm);
+  }
+
+  // 3. Hitung skor SAW: V_i = Σ (r_ij * w_j)
+  const scores = [];
+  for (let i = 0; i < m; i++) {
+    let s = 0;
+    for (let j = 0; j < n; j++) {
+      s += normalized[i][j] * weights[j];
+    }
+    scores.push(s);
+  }
+
+  // 4. Susun ranking (dari skor terbesar)
+  const items = alts.map((name, idx) => ({ name, score: scores[idx] }));
+  items.sort((a, b) => b.score - a.score);
+
+  // ====== BANGUN TABEL PROSES PERHITUNGAN ======
+
+  // Tabel Data Awal Matriks Keputusan
+  let tableData = '<h3>1. Data Awal Matriks Keputusan</h3>';
+  tableData += '<table><tr><th>Alternatif</th>';
+  for (let j = 0; j < n; j++) {
+    tableData += '<th>K' + (j + 1) + '</th>';
+  }
+  tableData += '</tr>';
+
+  for (let i = 0; i < m; i++) {
+    tableData += '<tr><td>' + alts[i] + '</td>';
+    for (let j = 0; j < n; j++) {
+      tableData += '<td>' + matrix[i][j] + '</td>';
+    }
+    tableData += '</tr>';
+  }
+  tableData += '</table>';
+
+  // Tabel Nilai Maksimum per Kriteria
+  let tableMax = '<h3>2. Nilai Maksimum per Kriteria</h3>';
+  tableMax += '<table><tr>';
+  for (let j = 0; j < n; j++) {
+    tableMax += '<th>max K' + (j + 1) + '</th>';
+  }
+  tableMax += '</tr><tr>';
+  for (let j = 0; j < n; j++) {
+    tableMax += '<td>' + maxPerKriteria[j] + '</td>';
+  }
+  tableMax += '</tr></table>';
+
+  // Tabel Normalisasi
+  let tableNorm = '<h3>3. Normalisasi Matriks (r<sub>ij</sub> = x<sub>ij</sub> / max K<sub>j</sub>)</h3>';
+  tableNorm += '<table><tr><th>Alternatif</th>';
+  for (let j = 0; j < n; j++) {
+    tableNorm += '<th>r' + (j + 1) + '</th>';
+  }
+  tableNorm += '</tr>';
+
+  for (let i = 0; i < m; i++) {
+    tableNorm += '<tr><td>' + alts[i] + '</td>';
+    for (let j = 0; j < n; j++) {
+      tableNorm += '<td>' + normalized[i][j].toFixed(4) + '</td>';
+    }
+    tableNorm += '</tr>';
+  }
+  tableNorm += '</table>';
+
+  // Tabel Bobot
+  let tableWeight = '<h3>4. Bobot Kriteria</h3>';
+  tableWeight += '<table><tr>';
+  for (let j = 0; j < n; j++) {
+    tableWeight += '<th>w' + (j + 1) + '</th>';
+  }
+  tableWeight += '</tr><tr>';
+  for (let j = 0; j < n; j++) {
+    tableWeight += '<td>' + weights[j] + '</td>';
+  }
+  tableWeight += '</tr></table>';
+
+  // Contoh perhitungan skor SAW untuk alternatif terbaik
+  const bestAlt = items[0];
+  const bestIdx = alts.indexOf(bestAlt.name); // index di data asli
+  let terms = [];
+  for (let j = 0; j < n; j++) {
+    terms.push(normalized[bestIdx][j].toFixed(4) + ' × ' + weights[j]);
+  }
+  const sumExpr = terms.join(' + ');
+
+  let exampleCalc = '<h3>5. Contoh Perhitungan Skor SAW</h3>';
+  exampleCalc += '<p>Contoh untuk alternatif terbaik: <strong>' + bestAlt.name + '</strong></p>';
+  exampleCalc += '<p>Rumus umum: V<sub>i</sub> = Σ (r<sub>ij</sub> × w<sub>j</sub>)</p>';
+  exampleCalc += '<p>Perhitungan:</p>';
+  exampleCalc += '<p>V<sub>' + bestAlt.name + '</sub> = ' + sumExpr +
+                 ' = <strong>' + bestAlt.score.toFixed(4) + '</strong></p>';
+
+  // Tabel Skor & Ranking
+  let tableScore = '<h3>6. Skor Akhir dan Ranking</h3>';
+  tableScore += '<table><tr><th>Alternatif</th><th>Skor SAW</th><th>Ranking</th></tr>';
+  items.forEach((item, idx) => {
+    tableScore += '<tr>' +
+      '<td>' + item.name + '</td>' +
+      '<td>' + item.score.toFixed(4) + '</td>' +
+      '<td>' + (idx + 1) + '</td>' +
+      '</tr>';
+  });
+  tableScore += '</table>';
+
+  const reportText =
+    '<h2>Hasil Metode SAW</h2>' +
+    tableData +
+    tableMax +
+    tableNorm +
+    tableWeight +
+    exampleCalc +
+    tableScore +
+    '<p><strong>Laporan / Kesimpulan:</strong><br>' +
+    'Berdasarkan perhitungan SAW dengan ' + n + ' kriteria dan ' + m + ' alternatif, ' +
+    'alternatif dengan skor tertinggi adalah <strong>' + bestAlt.name +
+    '</strong> dengan skor <strong>' + bestAlt.score.toFixed(4) +
+    '</strong>. Proses perhitungan meliputi normalisasi nilai setiap kriteria ' +
+    'dan pembobotan menggunakan bobot yang diberikan sehingga menghasilkan skor total V<sub>i</sub> untuk masing-masing alternatif.</p>';
+
+  const resDiv = document.getElementById('result');
+  resDiv.innerHTML = reportText;
+  resDiv.style.display = 'block';
+
+  // Chart skor SAW (urutan ranking)
+  const labels = items.map(i => i.name);
+  const dataScores = items.map(i => i.score);
+
+  if (sawChart) sawChart.destroy();
+  const ctx = document.getElementById('sawChart').getContext('2d');
+  sawChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Skor SAW',
+        data: dataScores
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true }
+      }
+    }
+  });
+}
+
+// Animasi global untuk semua halaman
+document.addEventListener("DOMContentLoaded", () => {
+  // efek fade-in body
+  document.body.classList.add("page-loaded");
+
+  // animasi kartu menu (di index) dan form-section (di halaman lain)
+  const animatedBlocks = document.querySelectorAll(".card, .form-section");
+  animatedBlocks.forEach((el, idx) => {
+    el.style.animationDelay = (idx * 0.08) + "s";
+    el.classList.add("slide-up");
+  });
+
+  // animasi klik tombol (ripple sederhana)
+  document.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const rect = btn.getBoundingClientRect();
+      const circle = document.createElement("span");
+      const diameter = Math.max(rect.width, rect.height);
+      const radius = diameter / 2;
+
+      circle.style.width = `${diameter}px`;
+      circle.style.height = `${diameter}px`;
+      circle.style.position = "absolute";
+      circle.style.left = `${e.clientX - rect.left - radius}px`;
+      circle.style.top = `${e.clientY - rect.top - radius}px`;
+      circle.style.borderRadius = "50%";
+      circle.style.pointerEvents = "none";
+      circle.style.background = "rgba(255,255,255,0.25)";
+      circle.style.transform = "scale(0)";
+      circle.style.opacity = "0.85";
+      circle.style.transition = "transform 0.35s ease-out, opacity 0.4s ease-out";
+
+      btn.style.position = "relative";
+      btn.appendChild(circle);
+
+      requestAnimationFrame(() => {
+        circle.style.transform = "scale(1.6)";
+        circle.style.opacity = "0";
+      });
+
+      setTimeout(() => circle.remove(), 420);
+    });
+  });
+});
+</script>
+</body>
+</html>

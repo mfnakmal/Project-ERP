@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Market Basket Analysis - ERP Tools</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header>
+  <h1>Market Basket Analysis</h1>
+  <p>Analisis pola pembelian menggunakan support dan confidence (2-itemset).</p>
+</header>
+
+<main>
+  <a href="index.html" class="back-link">&larr; Kembali ke Menu Utama</a>
+
+  <section class="form-section">
+    <h2>Input Data Transaksi</h2>
+    <p>
+      Format: satu transaksi per baris, dengan ID dan daftar item setelah tanda titik dua.<br>
+      Contoh:<br>
+      <code>T1: Roti,Susu,Telur</code><br>
+      <code>T2: Roti,Selai</code><br>
+      <code>T3: Susu,Telur</code><br>
+      <code>T4: Roti,Susu</code>
+    </p>
+
+    <label>Daftar transaksi
+      <textarea id="transactionsInput" rows="8"
+        placeholder="T1: Roti,Susu,Telur&#10;T2: Roti,Selai&#10;T3: Susu,Telur&#10;T4: Roti,Susu"></textarea>
+    </label>
+
+    <label>Minimum Support (0–1, misal 0.3 untuk 30%)</label>
+    <input type="number" id="minSupport" step="0.01" value="0.3">
+
+    <label>Minimum Confidence (0–1, misal 0.6 untuk 60%)</label>
+    <input type="number" id="minConfidence" step="0.01" value="0.6">
+
+    <button onclick="runMBA()"><span>Proses Market Basket</span></button>
+
+    <div id="result" class="result" style="display:none;"></div>
+
+    <div class="chart-container">
+      <canvas id="mbaChart"></canvas>
+    </div>
+  </section>
+</main>
+
+<script>
+let mbaChart = null;
+
+// Fungsi bantu: parse transaksi format "T1: A,B,C"
+function parseTransactions(raw) {
+  const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
+  const transactions = [];
+  const ids = [];
+
+  lines.forEach((line, idx) => {
+    let id = 'T' + (idx + 1);
+    let itemsPart = line;
+
+    const colonIndex = line.indexOf(':');
+    if (colonIndex !== -1) {
+      id = line.slice(0, colonIndex).trim();
+      itemsPart = line.slice(colonIndex + 1);
+    }
+
+    const items = itemsPart
+      .split(',')
+      .map(x => x.trim())
+      .filter(x => x);
+
+    if (items.length > 0) {
+      ids.push(id);
+      transactions.push(items);
+    }
+  });
+
+  if (transactions.length === 0) {
+    throw new Error('Tidak ada transaksi yang valid. Periksa format input.');
+  }
+
+  return { transactions, ids };
+}
+
+// Fungsi bantu: buat key pasangan item secara konsisten (A & B, alfabetis)
+function pairKey(a, b) {
+  return a < b ? a + ' & ' + b : b + ' & ' + a;
+}
+
+function runMBA() {
+  const raw = document.getElementById('transactionsInput').value.trim();
+  if (!raw) {
+    alert('Masukkan data transaksi terlebih dahulu.');
+    return;
+  }
+
+  let minSup = parseFloat(document.getElementById('minSupport').value);
+  let minConf = parseFloat(document.getElementById('minConfidence').value);
+
+  if (isNaN(minSup) || isNaN(minConf)) {
+    alert('Nilai minimum support dan confidence harus berupa angka.');
+    return;
+  }
+
+  // Jika user isi >1, anggap persen (misal 30 → 0.3)
+  if (minSup > 1) minSup = minSup / 100;
+  if (minConf > 1) minConf = minConf / 100;
+
+  let parsed;
+  try {
+    parsed = parseTransactions(raw);
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
+
+  const transactions = parsed.transactions;
+  const ids = parsed.ids;
+  const totalTrans = transactions.length;
+
+  // Hitung frekuensi 1-itemset dan 2-itemset
+  const itemCount = {};  // { item: count }
+  const pairCount = {};  // { "A & B": count }
+
+  transactions.forEach(tr => {
+    // gunakan Set agar item yang sama di 1 transaksi tidak dihitung dobel
+    const uniqueItems = Array.from(new Set(tr));
+
+    // 1-itemset
+    uniqueItems.forEach(item => {
+      if (!itemCount[item]) itemCount[item] = 0;
+      itemCount[item]++;
+    });
+
+    // 2-itemset
+    for (let i = 0; i < uniqueItems.length; i++) {
+      for (let j = i + 1; j < uniqueItems.length; j++) {
+        const key = pairKey(uniqueItems[i], uniqueItems[j]);
+        if (!pairCount[key]) pairCount[key] = 0;
+        pairCount[key]++;
+      }
+    }
+  });
+
+  const items = Object.keys(itemCount);
+  if (items.length === 0) {
+    alert('Tidak ada item yang bisa diproses.');
+    return;
+  }
+
+  // Hitung support item
+  const itemSupport = {};
+  items.forEach(it => {
+    itemSupport[it] = itemCount[it] / totalTrans;
+  });
+
+  // Hitung support pasangan
+  const pairs = Object.keys(pairCount);
+  const pairSupport = {};
+  pairs.forEach(pk => {
+    pairSupport[pk] = pairCount[pk] / totalTrans;
+  });
+
+  // Bentuk rules dari pasangan: A->B dan B->A
+  const rules = [];
+  pairs.forEach(pk => {
+    const parts = pk.split(' & ');
+    const A = parts[0];
+    const B = parts[1];
+    const supAB = pairSupport[pk];
+
+    const supA = itemSupport[A];
+    const supB = itemSupport[B];
+
+    const confAtoB = supA > 0 ? supAB / supA : 0;
+    const confBtoA = supB > 0 ? supAB / supB : 0;
+
+    if (supAB >= minSup && confAtoB >= minConf) {
+      rules.push({
+        from: A,
+        to: B,
+        support: supAB,
+        confidence: confAtoB
+      });
+    }
+    if (supAB >= minSup && confBtoA >= minConf) {
+      rules.push({
+        from: B,
+        to: A,
+        support: supAB,
+        confidence: confBtoA
+      });
+    }
+  });
+
+  // Urutkan rules: confidence desc, support desc
+  rules.sort((r1, r2) => {
+    if (r2.confidence !== r1.confidence) {
+      return r2.confidence - r1.confidence;
+    }
+    return r2.support - r1.support;
+  });
+
+  // ====== BANGUN REPORT HTML ======
+
+  // 1. Tabel transaksi
+  let tableTrans = '<h3>1. Data Transaksi</h3>';
+  tableTrans += '<table><tr><th>ID Transaksi</th><th>Item</th></tr>';
+  for (let i = 0; i < transactions.length; i++) {
+    tableTrans += '<tr><td>' + ids[i] + '</td><td>' + transactions[i].join(', ') + '</td></tr>';
+  }
+  tableTrans += '</table>';
+
+  // 2. Frequent 1-itemset
+  let tableF1 = '<h3>2. Frequent 1-Itemset</h3>';
+  tableF1 += '<table><tr><th>Item</th><th>Frekuensi</th><th>Support</th></tr>';
+  items.sort().forEach(it => {
+    tableF1 += '<tr>' +
+      '<td>' + it + '</td>' +
+      '<td>' + itemCount[it] + '</td>' +
+      '<td>' + itemSupport[it].toFixed(4) + '</td>' +
+      '</tr>';
+  });
+  tableF1 += '</table>';
+
+  // 3. Frequent 2-itemset
+  let tableF2 = '<h3>3. Frequent 2-Itemset (Pasangan Item)</h3>';
+  if (pairs.length === 0) {
+    tableF2 += '<p>Tidak ada pasangan item yang terbentuk dari data transaksi.</p>';
+  } else {
+    tableF2 += '<table><tr><th>Itemset</th><th>Frekuensi</th><th>Support</th></tr>';
+    pairs.sort().forEach(pk => {
+      tableF2 += '<tr>' +
+        '<td>{' + pk + '}</td>' +
+        '<td>' + pairCount[pk] + '</td>' +
+        '<td>' + pairSupport[pk].toFixed(4) + '</td>' +
+        '</tr>';
+    });
+    tableF2 += '</table>';
+  }
+
+  // 4. Contoh perhitungan support & confidence untuk 1 rule terbaik (kalau ada)
+  let exampleCalc = '<h3>4. Contoh Perhitungan Support & Confidence</h3>';
+  if (rules.length === 0) {
+    exampleCalc += '<p>Tidak ada aturan asosiasi yang memenuhi batas minimum support dan confidence.</p>';
+  } else {
+    const bestRule = rules[0];
+    const A = bestRule.from;
+    const B = bestRule.to;
+    const keyAB = pairKey(A, B);
+    const freqA = itemCount[A];
+    const freqAB = pairCount[keyAB];
+    const supA = itemSupport[A];
+    const supAB = pairSupport[keyAB];
+    const conf = bestRule.confidence;
+
+    exampleCalc += '<p>Contoh untuk aturan terbaik: <strong>' +
+      A + ' &rarr; ' + B + '</strong></p>';
+    exampleCalc += '<p><strong>Support</strong> dihitung sebagai:<br>' +
+      'Support(' + A + ') = jumlah transaksi yang mengandung ' + A +
+      ' / total transaksi = ' + freqA + ' / ' + totalTrans +
+      ' = <strong>' + supA.toFixed(4) + '</strong><br>' +
+      'Support({' + A + ',' + B + '}) = jumlah transaksi yang mengandung keduanya / total transaksi = ' +
+      freqAB + ' / ' + totalTrans +
+      ' = <strong>' + supAB.toFixed(4) + '</strong></p>';
+
+    exampleCalc += '<p><strong>Confidence</strong> aturan ' + A + ' &rarr; ' + B + ' adalah:<br>' +
+      'Confidence(' + A + ' &rarr; ' + B + ') = Support({' + A + ',' + B + '}) / Support(' + A + ')<br>' +
+      '= ' + supAB.toFixed(4) + ' / ' + supA.toFixed(4) +
+      ' = <strong>' + conf.toFixed(4) + '</strong></p>';
+  }
+
+  // 5. Tabel aturan asosiasi
+  let tableRules = '<h3>5. Aturan Asosiasi (Memenuhi Min Support & Min Confidence)</h3>';
+  if (rules.length === 0) {
+    tableRules += '<p>Tidak ada aturan yang lolos threshold support dan confidence.</p>';
+  } else {
+    tableRules += '<table><tr><th>Rule</th><th>Support</th><th>Confidence</th></tr>';
+    rules.forEach(r => {
+      tableRules += '<tr>' +
+        '<td>' + r.from + ' &rarr; ' + r.to + '</td>' +
+        '<td>' + r.support.toFixed(4) + '</td>' +
+        '<td>' + r.confidence.toFixed(4) + '</td>' +
+        '</tr>';
+    });
+    tableRules += '</table>';
+  }
+
+  // 6. Kesimpulan
+  let conclusion = '<h3>6. Laporan / Kesimpulan</h3>';
+  if (rules.length === 0) {
+    conclusion += '<p>Dengan minimum support = ' + minSup +
+      ' dan minimum confidence = ' + minConf +
+      ', tidak ditemukan aturan asosiasi yang kuat dari data transaksi yang diberikan.</p>';
+  } else {
+    const bestRule = rules[0];
+    conclusion += '<p>Dengan minimum support = ' + minSup +
+      ' dan minimum confidence = ' + minConf +
+      ', diperoleh ' + rules.length +
+      ' aturan asosiasi yang valid. Aturan dengan confidence tertinggi adalah:<br>' +
+      '<strong>' + bestRule.from + ' &rarr; ' + bestRule.to +
+      '</strong> dengan support <strong>' + bestRule.support.toFixed(4) +
+      '</strong> dan confidence <strong>' + bestRule.confidence.toFixed(4) +
+      '</strong>.<br>Aturan ini dapat dijadikan acuan untuk strategi penempatan produk atau promosi bundling di toko.</p>';
+  }
+
+  const resDiv = document.getElementById('result');
+  resDiv.innerHTML =
+    '<h2>Hasil Market Basket Analysis</h2>' +
+    tableTrans +
+    tableF1 +
+    tableF2 +
+    exampleCalc +
+    tableRules +
+    conclusion;
+  resDiv.style.display = 'block';
+
+  // ====== GRAFIK: support item tunggal ======
+  const labels = items.sort();
+  const supportValues = labels.map(it => itemSupport[it]);
+
+  if (mbaChart) mbaChart.destroy();
+  const ctx = document.getElementById('mbaChart').getContext('2d');
+  mbaChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Support Item',
+        data: supportValues
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true }
+      }
+    }
+  });
+}
+
+// ANIMASI GLOBAL (sama gaya halaman lain)
+document.addEventListener("DOMContentLoaded", () => {
+  document.body.classList.add("page-loaded");
+
+  const blocks = document.querySelectorAll(".card, .form-section");
+  blocks.forEach((el, idx) => {
+    el.style.animationDelay = (idx * 0.08) + "s";
+    el.classList.add("slide-up");
+  });
+
+  document.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const rect = btn.getBoundingClientRect();
+      const circle = document.createElement("span");
+      const diameter = Math.max(rect.width, rect.height);
+      const radius = diameter / 2;
+
+      circle.style.width = `${diameter}px`;
+      circle.style.height = `${diameter}px`;
+      circle.style.position = "absolute";
+      circle.style.left = `${e.clientX - rect.left - radius}px`;
+      circle.style.top = `${e.clientY - rect.top - radius}px`;
+      circle.style.borderRadius = "50%";
+      circle.style.pointerEvents = "none";
+      circle.style.background = "rgba(255,255,255,0.25)";
+      circle.style.transform = "scale(0)";
+      circle.style.opacity = "0.85";
+      circle.style.transition = "transform 0.35s ease-out, opacity 0.4s ease-out`;
+
+      btn.style.position = "relative";
+      btn.appendChild(circle);
+
+      requestAnimationFrame(() => {
+        circle.style.transform = "scale(1.6)";
+        circle.style.opacity = "0";
+      });
+
+      setTimeout(() => circle.remove(), 420);
+    });
+  });
+});
+</script>
+</body>
+</html>

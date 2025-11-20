@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Johnson's Rule (JSM) - ERP Tools</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header>
+  <h1>Johnson's Rule (JSM)</h1>
+  <p>Penjadwalan 2–3 mesin untuk meminimalkan makespan (dengan langkah & idle time).</p>
+</header>
+
+<main>
+  <a href="index.html" class="back-link">&larr; Kembali ke Menu Utama</a>
+
+  <section class="form-section">
+    <h2>Input Data Job</h2>
+    <p>
+      Format: satu job per baris, pisahkan dengan koma:<br>
+      <code>NamaJob, waktuMesin1, waktuMesin2, waktuMesin3 (opsional)</code><br><br>
+      Contoh 3 mesin:<br>
+      <code>J1,3,8,5</code><br>
+      <code>J2,5,4,6</code><br>
+      <code>J3,2,6,7</code><br><br>
+      Contoh 2 mesin:<br>
+      <code>J1,3,8</code><br>
+      <code>J2,5,4</code>
+    </p>
+
+    <textarea id="jobsInput" rows="8"
+      placeholder="J1,3,8,5&#10;J2,5,4,6&#10;J3,2,6,7"></textarea>
+
+    <button onclick="hitungJohnson()"><span>Hitung Urutan &amp; Makespan</span></button>
+
+    <div id="result" class="result" style="display:none;"></div>
+
+    <div class="chart-container">
+      <canvas id="jsmChart"></canvas>
+    </div>
+  </section>
+</main>
+
+<script>
+var jsmChart = null;
+
+// Parse teks input jadi array job
+function parseJobs(raw) {
+  var lines = raw.split('\n');
+  var jobs = [];
+  var machineCount = null;
+
+  for (var i = 0; i < lines.length; i++) {
+    var line = lines[i].trim();
+    if (!line) continue;
+
+    var parts = line.split(',');
+    for (var j = 0; j < parts.length; j++) {
+      parts[j] = parts[j].trim();
+    }
+
+    if (parts.length < 3) continue; // minimal: Nama, M1, M2
+
+    if (machineCount === null) {
+      machineCount = parts.length - 1;
+      if (machineCount !== 2 && machineCount !== 3) {
+        throw new Error('Jumlah mesin per job harus 2 atau 3.');
+      }
+    } else {
+      if (parts.length - 1 !== machineCount) {
+        throw new Error('Semua baris harus memiliki jumlah waktu mesin yang sama (2 atau 3).');
+      }
+    }
+
+    var name = parts[0];
+    var times = [];
+    for (var k = 1; k <= machineCount; k++) {
+      var t = parseFloat(parts[k]);
+      if (isNaN(t)) {
+        throw new Error('Waktu proses mesin harus berupa angka.');
+      }
+      times.push(t);
+    }
+
+    jobs.push({ name: name, times: times });
+  }
+
+  if (jobs.length === 0) {
+    throw new Error('Tidak ada data job yang valid.');
+  }
+
+  return { jobs: jobs, machineCount: machineCount };
+}
+
+// Buat mesin semu A & B
+function makePseudoJobs(jobs, machineCount) {
+  var pseudo = [];
+  for (var i = 0; i < jobs.length; i++) {
+    var job = jobs[i];
+    var A, B;
+    if (machineCount === 2) {
+      A = job.times[0];
+      B = job.times[1];
+    } else {
+      A = job.times[0] + job.times[1]; // M1 + M2
+      B = job.times[1] + job.times[2]; // M2 + M3
+    }
+    pseudo.push({
+      name: job.name,
+      times: job.times.slice(),
+      A: A,
+      B: B
+    });
+  }
+  return pseudo;
+}
+
+// Johnson sequence (pakai mesin semu)
+function johnsonSequence(pseudoJobs) {
+  var remaining = pseudoJobs.slice();
+  var n = remaining.length;
+  var seq = new Array(n);
+  var left = 0;
+  var right = n - 1;
+  var steps = [];
+  var stepNum = 1;
+
+  while (remaining.length > 0) {
+    var minTime = Infinity;
+    var minIndex = -1;
+    var fromMachine = 'A';
+
+    for (var i = 0; i < remaining.length; i++) {
+      var job = remaining[i];
+      if (job.A < minTime) {
+        minTime = job.A;
+        minIndex = i;
+        fromMachine = 'A';
+      }
+      if (job.B < minTime) {
+        minTime = job.B;
+        minIndex = i;
+        fromMachine = 'B';
+      }
+    }
+
+    var chosen = remaining[minIndex];
+    var positionText;
+    if (fromMachine === 'A') {
+      seq[left] = chosen;
+      positionText = 'Depan (posisi ' + (left + 1) + ')';
+      left++;
+    } else {
+      seq[right] = chosen;
+      positionText = 'Belakang (posisi ' + (right + 1) + ')';
+      right--;
+    }
+
+    steps.push({
+      step: stepNum,
+      jobName: chosen.name,
+      value: minTime,
+      fromMachine: fromMachine,
+      position: positionText
+    });
+    stepNum++;
+
+    remaining.splice(minIndex, 1);
+  }
+
+  return { sequence: seq, steps: steps };
+}
+
+// Hitung jadwal & makespan
+function hitungJadwal(sequence, machineCount) {
+  var completion = [];
+  for (var i = 0; i < machineCount; i++) {
+    completion.push(0);
+  }
+
+  var timeline = [];
+
+  for (var j = 0; j < sequence.length; j++) {
+    var job = sequence[j];
+    var jobComp = [];
+
+    for (var m = 0; m < machineCount; m++) {
+      if (m === 0) {
+        completion[m] = completion[m] + job.times[m];
+      } else {
+        var start = completion[m] > completion[m - 1] ? completion[m] : completion[m - 1];
+        completion[m] = start + job.times[m];
+      }
+      jobComp.push(completion[m]);
+    }
+
+    timeline.push({
+      name: job.name,
+      completion: jobComp
+    });
+  }
+
+  return {
+    timeline: timeline,
+    makespan: completion[machineCount - 1]
+  };
+}
+
+function hitungJohnson() {
+  var raw = document.getElementById('jobsInput').value.trim();
+  if (!raw) {
+    alert('Masukkan data job terlebih dahulu.');
+    return;
+  }
+
+  var parsed;
+  try {
+    parsed = parseJobs(raw);
+  } catch (e) {
+    alert(e.message);
+    return;
+  }
+
+  var jobs = parsed.jobs;
+  var machineCount = parsed.machineCount;
+
+  var pseudoJobs = makePseudoJobs(jobs, machineCount);
+  var johnsonRes = johnsonSequence(pseudoJobs);
+  var sequence = johnsonRes.sequence;
+  var steps = johnsonRes.steps;
+
+  var jadwal = hitungJadwal(sequence, machineCount);
+  var timeline = jadwal.timeline;
+  var makespan = jadwal.makespan;
+
+  // ====== BUILD REPORT HTML ======
+
+  // 1. Tabel data waktu proses
+  var inputTable = '<h3>1. Data Waktu Proses per Job</h3>';
+  inputTable += '<table><tr><th>Job</th>';
+  for (var m = 0; m < machineCount; m++) {
+    inputTable += '<th>M' + (m + 1) + '</th>';
+  }
+  inputTable += '</tr>';
+
+  for (var i = 0; i < jobs.length; i++) {
+    inputTable += '<tr><td>' + jobs[i].name + '</td>';
+    for (var k = 0; k < machineCount; k++) {
+      inputTable += '<td>' + jobs[i].times[k] + '</td>';
+    }
+    inputTable += '</tr>';
+  }
+  inputTable += '</table>';
+
+  // 2. Tabel mesin semu A dan B
+  var pseudoTable = '<h3>2. Mesin Semu untuk Johnson</h3>';
+  pseudoTable += '<p>';
+  if (machineCount === 3) {
+    pseudoTable += 'Untuk 3 mesin digunakan dua mesin semu: A = M1 + M2, B = M2 + M3.';
+  } else {
+    pseudoTable += 'Untuk 2 mesin, A = M1 dan B = M2 (Johnson klasik).';
+  }
+  pseudoTable += '</p>';
+
+  pseudoTable += '<table><tr><th>Job</th><th>A</th><th>B</th></tr>';
+  for (var p = 0; p < pseudoJobs.length; p++) {
+    pseudoTable += '<tr><td>' + pseudoJobs[p].name + '</td>' +
+                   '<td>' + pseudoJobs[p].A + '</td>' +
+                   '<td>' + pseudoJobs[p].B + '</td></tr>';
+  }
+  pseudoTable += '</table>';
+
+  // 3. Tabel langkah Johnson
+  var stepTable = '<h3>3. Langkah Penerapan Johnson\'s Rule</h3>';
+  stepTable += '<table><tr><th>Langkah</th><th>Job dipilih</th><th>Nilai minimum</th><th>Dari mesin</th><th>Ditempatkan di</th></tr>';
+  for (var s = 0; s < steps.length; s++) {
+    stepTable += '<tr>' +
+      '<td>' + steps[s].step + '</td>' +
+      '<td>' + steps[s].jobName + '</td>' +
+      '<td>' + steps[s].value + '</td>' +
+      '<td>' + steps[s].fromMachine + '</td>' +
+      '<td>' + steps[s].position + '</td>' +
+      '</tr>';
+  }
+  stepTable += '</table>';
+
+  // 4. Urutan job optimal
+  var orderText = '';
+  for (var u = 0; u < sequence.length; u++) {
+    orderText += sequence[u].name;
+    if (u !== sequence.length - 1) {
+      orderText += ' ➜ ';
+    }
+  }
+  var orderHtml = '<h3>4. Urutan Job Optimal</h3><p><strong>' + orderText + '</strong></p>';
+
+  // 5. Jadwal dan completion time
+  var scheduleTable = '<h3>5. Jadwal Produksi dan Waktu Selesai Tiap Mesin</h3>';
+  scheduleTable += '<table><tr><th>Job</th>';
+  for (var mm = 0; mm < machineCount; mm++) {
+    scheduleTable += '<th>Selesai M' + (mm + 1) + '</th>';
+  }
+  scheduleTable += '</tr>';
+
+  for (var t = 0; t < timeline.length; t++) {
+    scheduleTable += '<tr><td>' + timeline[t].name + '</td>';
+    for (var cm = 0; cm < machineCount; cm++) {
+      scheduleTable += '<td>' + timeline[t].completion[cm] + '</td>';
+    }
+    scheduleTable += '</tr>';
+  }
+  scheduleTable += '</table>';
+
+  // 6. Idle time per mesin
+  // Total waktu proses tiap mesin
+  var totalProc = [];
+  for (var i2 = 0; i2 < machineCount; i2++) {
+    totalProc.push(0);
+  }
+
+  for (var j2 = 0; j2 < jobs.length; j2++) {
+    for (var m2 = 0; m2 < machineCount; m2++) {
+      totalProc[m2] += jobs[j2].times[m2];
+    }
+  }
+
+  var idleTable = '<h3>6. Waktu Menganggur (Idle Time) Tiap Mesin</h3>';
+  idleTable += '<p>Idle time dihitung dengan rumus:<br>' +
+               '<em>Idle Time Mesin m = Makespan - Σ waktu proses Mesin m</em><br>' +
+               'dengan rentang waktu dari 0 sampai makespan pada mesin terakhir.</p>';
+
+  idleTable += '<table><tr><th>Mesin</th><th>Σ Waktu Proses</th><th>Makespan</th><th>Idle Time</th></tr>';
+
+  for (var m3 = 0; m3 < machineCount; m3++) {
+    var idle = makespan - totalProc[m3];
+    idleTable += '<tr>' +
+      '<td>M' + (m3 + 1) + '</td>' +
+      '<td>' + totalProc[m3] + '</td>' +
+      '<td>' + makespan + '</td>' +
+      '<td>' + idle + '</td>' +
+      '</tr>';
+  }
+  idleTable += '</table>';
+
+  var kesimpulan =
+    '<p><strong>Laporan / Kesimpulan:</strong><br>' +
+    'Dengan menggunakan Johnson\'s Rule pada ' + jobs.length +
+    ' job dan ' + machineCount + ' mesin, diperoleh urutan seperti di atas ' +
+    'dengan nilai makespan (waktu selesai pada mesin terakhir) sebesar ' +
+    '<strong>' + makespan + '</strong> satuan waktu. ' +
+    'Tabel idle time menunjukkan berapa lama setiap mesin menganggur dalam rentang 0 hingga makespan.</p>';
+
+  var fullReport = '<h2>Hasil Johnson\'s Rule</h2>' +
+                   inputTable +
+                   pseudoTable +
+                   stepTable +
+                   orderHtml +
+                   scheduleTable +
+                   idleTable +
+                   kesimpulan;
+
+  var resDiv = document.getElementById('result');
+  resDiv.innerHTML = fullReport;
+  resDiv.style.display = 'block';
+
+  // ====== GRAFIK ======
+  var labels = [];
+  var lastComp = [];
+  for (var g = 0; g < timeline.length; g++) {
+    labels.push(timeline[g].name);
+    lastComp.push(timeline[g].completion[machineCount - 1]);
+  }
+
+  if (jsmChart) {
+    jsmChart.destroy();
+  }
+  var ctx = document.getElementById('jsmChart').getContext('2d');
+  jsmChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: 'Waktu selesai mesin terakhir',
+        data: lastComp
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true }
+      }
+    }
+  });
+}
+
+// ANIMASI GLOBAL
+document.addEventListener("DOMContentLoaded", function () {
+  document.body.classList.add("page-loaded");
+
+  var blocks = document.querySelectorAll(".form-section");
+  for (var i = 0; i < blocks.length; i++) {
+    blocks[i].style.animationDelay = (i * 0.08) + "s";
+    blocks[i].classList.add("slide-up");
+  }
+
+  var buttons = document.querySelectorAll("button");
+  for (var b = 0; b < buttons.length; b++) {
+    buttons[b].addEventListener("click", function (e) {
+      var btn = this;
+      var rect = btn.getBoundingClientRect();
+      var circle = document.createElement("span");
+      var diameter = Math.max(rect.width, rect.height);
+      var radius = diameter / 2;
+
+      circle.style.width = diameter + "px";
+      circle.style.height = diameter + "px";
+      circle.style.position = "absolute";
+      circle.style.left = (e.clientX - rect.left - radius) + "px";
+      circle.style.top = (e.clientY - rect.top - radius) + "px";
+      circle.style.borderRadius = "50%";
+      circle.style.pointerEvents = "none";
+      circle.style.background = "rgba(255,255,255,0.25)";
+      circle.style.transform = "scale(0)";
+      circle.style.opacity = "0.85";
+      circle.style.transition = "transform 0.35s ease-out, opacity 0.4s ease-out";
+
+      btn.style.position = "relative";
+      btn.appendChild(circle);
+
+      requestAnimationFrame(function () {
+        circle.style.transform = "scale(1.6)";
+        circle.style.opacity = "0";
+      });
+
+      setTimeout(function () {
+        circle.remove();
+      }, 420);
+    });
+  }
+});
+</script>
+</body>
+</html>

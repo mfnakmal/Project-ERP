@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Forecasting Trend Linear - ERP Tools</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<header>
+  <h1>Forecasting (Trend Linear)</h1>
+  <p>Peramalan berdasarkan metode Trend Linear: y = a + bX (X terkode simetris).</p>
+</header>
+
+<main>
+  <a href="index.html" class="back-link">&larr; Kembali ke Menu Utama</a>
+
+  <section class="form-section">
+    <h2>Input Data</h2>
+
+    <label>Data historis (pisahkan dengan koma)
+      <input type="text" id="dataInput" placeholder="Contoh: 120,135,150,160,175">
+    </label>
+
+    <button onclick="hitungTrend()"><span>Hitung Forecast</span></button>
+
+    <div id="result" class="result" style="display:none;"></div>
+
+    <div class="chart-container">
+      <canvas id="forecastChart"></canvas>
+    </div>
+  </section>
+</main>
+
+<script>
+let forecastChart = null;
+
+// Generate X terkode sesuai aturan dosen:
+// - n ganjil  -> ..., -2, -1, 0, 1, 2, ...
+// - n genap   -> ..., -7, -5, -3, -1, 1, 3, 5, 7
+function generateCodedX(n) {
+  const xs = [];
+  if (n % 2 === 1) {
+    // Ganjil: dari -(n-1)/2 sampai +(n-1)/2 dengan step 1
+    const half = (n - 1) / 2;
+    for (let k = -half; k <= half; k++) {
+      xs.push(k);
+    }
+  } else {
+    // Genap: bilangan ganjil negatif lalu positif, misal n=8 -> -7,-5,-3,-1,1,3,5,7
+    const half = n / 2;
+    // negatif: dari terbesar ke terkecil, supaya urut -...,-1
+    for (let i = half - 1; i >= 0; i--) {
+      xs.push(-(2 * i + 1));
+    }
+    // positif
+    for (let i = 0; i < half; i++) {
+      xs.push(2 * i + 1);
+    }
+  }
+  return xs;
+}
+
+function hitungTrend() {
+  const raw = document.getElementById('dataInput').value.trim();
+
+  if (!raw) {
+    alert("Masukkan data historis terlebih dahulu.");
+    return;
+  }
+
+  const y = raw
+    .split(',')
+    .map(x => parseFloat(x.trim()))
+    .filter(x => !isNaN(x));
+
+  const n = y.length;
+  if (n < 2) {
+    alert("Minimal diperlukan 2 data.");
+    return;
+  }
+
+  // X terkode (sesuai aturan ganjil/genap)
+  const xCoded = generateCodedX(n);
+
+  // Hitung Σy
+  const sumY = y.reduce((a, b) => a + b, 0);
+
+  // Hitung Σ(x·y) dan Σ(x²)
+  let sumXY = 0;
+  let sumX2 = 0;
+  for (let i = 0; i < n; i++) {
+    sumXY += xCoded[i] * y[i];
+    sumX2 += xCoded[i] * xCoded[i];
+  }
+
+  // Rumus dosen:
+  const a = sumY / n;
+  const b = sumXY / sumX2;
+
+  // X untuk periode berikutnya: lanjutkan pola X terkode
+  const lastX = xCoded[n - 1];
+  const step = xCoded[n - 1] - xCoded[n - 2]; // 1 untuk ganjil, 2 untuk genap
+  const nextX = lastX + step;
+  const yPred = a + b * nextX;
+
+  // BUILD TABLE X, Y, XY, X^2
+  let tableHtml = `
+    <table>
+      <tr><th>Periode</th><th>X (terkode)</th><th>Y</th><th>X·Y</th><th>X²</th></tr>
+  `;
+
+  for (let i = 0; i < n; i++) {
+    const xy = xCoded[i] * y[i];
+    const x2 = xCoded[i] * xCoded[i];
+    tableHtml += `<tr>
+      <td>${i + 1}</td>
+      <td>${xCoded[i]}</td>
+      <td>${y[i]}</td>
+      <td>${xy.toFixed(2)}</td>
+      <td>${x2.toFixed(2)}</td>
+    </tr>`;
+  }
+
+  tableHtml += `
+    <tr>
+      <th>Σ</th>
+      <th>${xCoded.reduce((a,b)=>a+b,0)}</th>
+      <th>${sumY.toFixed(2)}</th>
+      <th>${sumXY.toFixed(2)}</th>
+      <th>${sumX2.toFixed(2)}</th>
+    </tr>
+    </table>
+  `;
+
+  // BUILD REPORT / LANGKAH
+  const report = `
+    <h2>Hasil Perhitungan Trend Linear</h2>
+    ${tableHtml}
+
+    <h3>Langkah Perhitungan</h3>
+
+    <p><strong>Penentuan X terkode:</strong><br>
+    - Jika jumlah data ganjil: X dimulai simetris dari 0, misalnya n=5 → -2, -1, 0, 1, 2.<br>
+    - Jika jumlah data genap: X berupa bilangan ganjil simetris tanpa 0, misalnya n=8 → -7, -5, -3, -1, 1, 3, 5, 7.</p>
+
+    <p><strong>1. Hitung nilai a</strong></p>
+    <p>
+      a = Σy / n = ${sumY.toFixed(2)} / ${n} = <strong>${a.toFixed(4)}</strong>
+    </p>
+
+    <p><strong>2. Hitung nilai b</strong></p>
+    <p>
+      b = Σ(x·y) / Σ(x²) =
+      ${sumXY.toFixed(2)} / ${sumX2.toFixed(2)} =
+      <strong>${b.toFixed(4)}</strong>
+    </p>
+
+    <p><strong>3. Rumus garis trend:</strong></p>
+    <p>
+      y = a + bX = ${a.toFixed(4)} + (${b.toFixed(4)} × X)
+    </p>
+
+    <p><strong>4. Prediksi untuk periode berikutnya</strong></p>
+    <p>
+      X periode berikutnya mengikuti pola X terkode:<br>
+      X<sub>baru</sub> = ${lastX} + (step = ${step}) = <strong>${nextX}</strong><br><br>
+      y<sub>baru</sub> = a + b·X<sub>baru</sub> =
+      ${a.toFixed(4)} + (${b.toFixed(4)} × ${nextX}) =
+      <strong>${yPred.toFixed(2)}</strong>
+    </p>
+
+    <p><strong>Kesimpulan:</strong><br>
+    Berdasarkan metode Trend Linear dengan X terkode, prediksi untuk periode berikutnya
+    (X = ${nextX}) adalah <strong>${yPred.toFixed(2)}</strong>.</p>
+  `;
+
+  const resultDiv = document.getElementById('result');
+  resultDiv.innerHTML = report;
+  resultDiv.style.display = "block";
+
+  // CHART: Data aktual vs garis trend
+  if (forecastChart) forecastChart.destroy();
+
+  const ctx = document.getElementById('forecastChart').getContext('2d');
+
+  // label periode 1..n dan periode berikutnya (n+1)
+  const labels = [];
+  for (let i = 1; i <= n; i++) labels.push("Periode " + i);
+  labels.push("Periode " + (n + 1));
+
+  // garis trend dihitung di X terkode, tapi diplot per periode 1..n+1
+  const trendY = [];
+  for (let i = 0; i < n; i++) {
+    trendY.push(a + b * xCoded[i]);
+  }
+  trendY.push(yPred);
+
+  const actual = [...y, null]; // null di titik terakhir biar gak nyambung
+
+  forecastChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Data Aktual",
+          data: actual,
+          borderWidth: 2
+        },
+        {
+          label: "Garis Trend",
+          data: trendY,
+          borderDash: [5, 5],
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { display: true }
+      }
+    }
+  });
+}
+
+// ANIMASI GLOBAL (sesuai style.css)
+document.addEventListener("DOMContentLoaded", () => {
+  document.body.classList.add("page-loaded");
+  const blocks = document.querySelectorAll(".form-section");
+  blocks.forEach((el, idx) => {
+    el.style.animationDelay = (idx * 0.08) + "s";
+    el.classList.add("slide-up");
+  });
+});
+</script>
+</body>
+</html>

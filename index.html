@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>ERP Tools - Menu Utama</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>ERP Tools</h1>
+  <p>Pilih metode ERP yang ingin digunakan</p>
+</header>
+
+<main>
+  <section class="menu-container">
+    <a href="forecasting.html" class="card">
+      <h2>Forecasting</h2>
+      <p>Peramalan permintaan berdasarkan data historis.</p>
+    </a>
+
+    <a href="jsm.html" class="card">
+      <h2>Johnson’s Rule (JSM)</h2>
+      <p>Penjadwalan dua mesin untuk meminimalkan makespan.</p>
+    </a>
+
+    <a href="saw.html" class="card">
+      <h2>Metode SAW</h2>
+      <p>Sistem pendukung keputusan berbasis pembobotan kriteria.</p>
+    </a>
+
+    <a href="marketbasket.html" class="card">
+      <h2>Market Basket Analysis</h2>
+      <p>Analisis asosiasi barang yang sering dibeli bersama.</p>
+    </a>
+
+    <a href="bom.html" class="card">
+      <h2>Bill of Material</h2>
+      <p>Perhitungan kebutuhan material untuk produksi.</p>
+    </a>
+  </section>
+</main>
+
+<footer style="text-align:center; padding-bottom:20px;">
+  <small>© 2025 ERP Tools – [Nama Kamu]</small>
+</footer>
+<script>
+  // Animasi global untuk semua halaman
+  document.addEventListener("DOMContentLoaded", () => {
+    // efek fade-in body
+    document.body.classList.add("page-loaded");
+
+    // animasi kartu menu (di index) dan form-section (di halaman lain)
+    const animatedBlocks = document.querySelectorAll(".card, .form-section");
+    animatedBlocks.forEach((el, idx) => {
+      el.style.animationDelay = (idx * 0.08) + "s";
+      el.classList.add("slide-up");
+    });
+
+    // animasi klik tombol (ripple sederhana)
+    document.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const rect = btn.getBoundingClientRect();
+        const circle = document.createElement("span");
+        const diameter = Math.max(rect.width, rect.height);
+        const radius = diameter / 2;
+
+        circle.style.width = circle.style.height = `${diameter}px`;
+        circle.style.position = "absolute";
+        circle.style.left = `${e.clientX - rect.left - radius}px`;
+        circle.style.top = `${e.clientY - rect.top - radius}px`;
+        circle.style.borderRadius = "50%";
+        circle.style.pointerEvents = "none";
+        circle.style.background = "rgba(255,255,255,0.25)";
+        circle.style.transform = "scale(0)";
+        circle.style.opacity = "0.85";
+        circle.style.transition = "transform 0.35s ease-out, opacity 0.4s ease-out";
+
+        btn.style.position = "relative";
+        btn.appendChild(circle);
+
+        requestAnimationFrame(() => {
+          circle.style.transform = "scale(1.6)";
+          circle.style.opacity = "0";
+        });
+
+        setTimeout(() => circle.remove(), 420);
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
