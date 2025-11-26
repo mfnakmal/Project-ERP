@@ -4,8 +4,9 @@
   <meta charset="UTF-8">
   <title>Bill of Material (BOM)</title>
   <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-  <!-- CSS khusus tree BOM -->
+  <!-- CSS khusus tree BOM multi-level -->
   <style>
     .bom-tree {
       margin-top: 16px;
@@ -13,13 +14,17 @@
       justify-content: center;
     }
 
-    .bom-tree-root {
+    .bom-tree-branch {
       text-align: center;
       position: relative;
       padding-bottom: 18px;
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .bom-node {
+      position: relative;
       display: inline-flex;
       flex-direction: column;
       align-items: center;
@@ -36,7 +41,7 @@
     .bom-node-root {
       background: radial-gradient(circle at 30% 0, rgba(56, 189, 248, 0.35), rgba(15, 23, 42, 0.96));
       border-color: rgba(56, 189, 248, 0.8);
-      margin-bottom: 22px;
+      margin-bottom: 6px;
     }
 
     .bom-node-title {
@@ -54,12 +59,12 @@
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
-      gap: 12px;
+      gap: 14px;
       position: relative;
-      padding-top: 18px;
+      padding-top: 16px;
     }
 
-    /* garis vertikal dari root ke baris anak */
+    /* garis vertikal dari parent ke baris anak */
     .bom-tree-children::before {
       content: "";
       position: absolute;
@@ -67,12 +72,12 @@
       left: 50%;
       transform: translateX(-50%);
       width: 2px;
-      height: 16px;
+      height: 14px;
       background: rgba(148, 163, 184, 0.7);
     }
 
     /* garis kecil di atas tiap node anak */
-    .bom-node::before {
+    .bom-tree-branch .bom-node::before {
       content: "";
       position: absolute;
       top: -12px;
@@ -96,7 +101,7 @@
 <body>
 <header>
   <h1>Bill of Material (BOM)</h1>
-  <p>Perhitungan kebutuhan material untuk produksi (single-level BOM).</p>
+  <p>Perhitungan kebutuhan material untuk produksi (multi-level BOM).</p>
 </header>
 
 <main>
@@ -113,13 +118,16 @@
       <input type="number" id="productQty" min="1" value="10">
     </label>
 
-    <p>Daftar komponen (satu per baris, format: <code>NamaKomponen, jumlahPerUnit</code>)<br>
-       Contoh:<br>
-       <code>Kaki Meja,4</code><br>
-       <code>Daun Meja,1</code><br>
-       <code>Baut,16</code>
+    <p>
+      Struktur BOM (satu baris per parent).<br>
+      Format: <code>Parent: Anak1*qty, Anak2*qty, ...</code><br><br>
+      Contoh Meja Kayu multi-level:<br>
+      <code>Meja Kayu: Kaki Meja*4, Top Meja*1</code><br>
+      <code>Kaki Meja: Baut*1, Kayu*1, Besi*1</code>
     </p>
-    <textarea id="componentsInput" rows="8" placeholder="Kaki Meja,4&#10;Daun Meja,1&#10;Baut,16"></textarea>
+
+    <textarea id="structureInput" rows="8"
+      placeholder="Meja Kayu: Kaki Meja*4, Top Meja*1&#10;Kaki Meja: Baut*1, Kayu*1, Besi*1"></textarea>
 
     <button onclick="hitungBOM()"><span>Hitung Kebutuhan Material</span></button>
 
@@ -131,129 +139,192 @@
   </section>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 let bomChart = null;
 
 function hitungBOM() {
   const productName = document.getElementById('productName').value.trim() || 'Produk';
   const productQty = parseInt(document.getElementById('productQty').value, 10);
-  const rawComp = document.getElementById('componentsInput').value.trim();
+  const rawStruct = document.getElementById('structureInput').value.trim();
 
-  if (!rawComp || isNaN(productQty) || productQty <= 0) {
-    alert('Masukkan nama komponen dan jumlah produksi yang valid.');
+  if (!rawStruct || isNaN(productQty) || productQty <= 0) {
+    alert('Masukkan struktur BOM dan jumlah produksi yang valid.');
     return;
   }
 
-  const lines = rawComp.split('\n').map(x => x.trim()).filter(x => x);
-  const components = [];
+  // ===== PARSE STRUKTUR: Parent: Child*qty, Child2*qty ====
+  const lines = rawStruct.split('\n').map(x => x.trim()).filter(x => x);
+  const childrenMap = {};              // parent -> [{name, qtyPerParent}]
+  const qtyPerParentMap = {};          // "parent||child" -> qty
+  const allNodes = new Set();
 
   lines.forEach(line => {
-    const parts = line.split(',').map(x => x.trim());
-    if (parts.length !== 2) return;
-    const name = parts[0];
-    const qtyPerUnit = parseFloat(parts[1]);
-    if (!name || isNaN(qtyPerUnit)) return;
-    components.push({ name, qtyPerUnit });
+    const parts = line.split(':');
+    if (parts.length < 2) return;
+
+    const parent = parts[0].trim();
+    const rhs = parts[1].trim();
+    if (!parent || !rhs) return;
+
+    allNodes.add(parent);
+
+    const childSpecs = rhs.split(',').map(x => x.trim()).filter(x => x);
+    childSpecs.forEach(spec => {
+      const cp = spec.split('*');
+      const childName = cp[0].trim();
+      const qty = cp[1] ? parseFloat(cp[1]) : 1;
+      if (!childName || isNaN(qty) || qty <= 0) return;
+
+      allNodes.add(childName);
+
+      if (!childrenMap[parent]) childrenMap[parent] = [];
+      childrenMap[parent].push({ name: childName, qtyPerParent: qty });
+      qtyPerParentMap[parent + '||' + childName] = qty;
+    });
   });
 
-  if (components.length === 0) {
-    alert('Format komponen tidak valid.');
+  if (!childrenMap[productName]) {
+    alert('Produk utama belum memiliki baris parent di struktur BOM.');
     return;
   }
 
-  // ===== TABEL OUTPUT =====
+  // ===== TRAVERSAL & AKUMULASI TOTAL ====
+  const totals = {};   // nama item -> total qty untuk semua produksi
+  const steps = [];    // daftar string langkah
+
+  function accumulate(name, qtyNeeded, path) {
+    const currentPath = path.concat(name);
+    totals[name] = (totals[name] || 0) + qtyNeeded;
+
+    const children = childrenMap[name] || [];
+    if (!children.length) return; // leaf / bahan mentah
+
+    children.forEach(child => {
+      const childTotal = qtyNeeded * child.qtyPerParent;
+      const pathText = currentPath.join(' → ') + ' → ' + child.name;
+      const stepText = 'Jalur ' + pathText + ': total = '
+        + qtyNeeded + ' × ' + child.qtyPerParent
+        + ' = ' + childTotal;
+      steps.push(stepText);
+
+      accumulate(child.name, childTotal, currentPath);
+    });
+  }
+
+  accumulate(productName, productQty, []);
+
+  // ===== TABEL REKAP ITEM =====
+  const names = Object.keys(totals);
+  // pastikan root di urutan paling atas
+  names.sort((a, b) => {
+    if (a === productName) return -1;
+    if (b === productName) return 1;
+    return a.localeCompare(b);
+  });
+
   let tableHtml = ''
     + '<h2>Hasil Perhitungan BOM</h2>'
-    + '<p>Produk: <strong>' + productName + '</strong><br>'
+    + '<p>Produk utama: <strong>' + productName + '</strong><br>'
     + 'Jumlah produksi: <strong>' + productQty + '</strong> unit</p>'
-    + '<h3>1. Tabel Kebutuhan Komponen</h3>'
+    + '<h3>1. Rekap Kebutuhan Setiap Item</h3>'
     + '<table>'
-    + '<tr><th>Komponen</th><th>Qty per Unit</th><th>Qty Total</th></tr>';
+    + '<tr>'
+    +   '<th>Item</th>'
+    +   '<th>Keterangan</th>'
+    +   '<th>Kebutuhan per 1 ' + productName + '</th>'
+    +   '<th>Kebutuhan total (' + productQty + ' unit)</th>'
+    + '</tr>';
 
-  const labels = [];
-  const totals = [];
-  const langkahList = [];
-  let treeChildren = '';
+  names.forEach(name => {
+    const totalForLot = totals[name];
+    const perUnit = (totalForLot / productQty);
+    const isRoot = name === productName;
+    const keterangan = isRoot ? 'Produk jadi' : (childrenMap[name] ? 'Sub-assembly / komponen rakitan' : 'Bahan / komponen dasar');
 
-  components.forEach(c => {
-    const total = c.qtyPerUnit * productQty;
-
-    labels.push(c.name);
-    totals.push(total);
-
-    // detail langkah per komponen
-    langkahList.push(
-      '<li><strong>' + c.name + '</strong>:<br>'
-      + 'Total = qty/unit × jumlah produksi<br>'
-      + 'Total = ' + c.qtyPerUnit + ' × ' + productQty
-      + ' = <strong>' + total + '</strong></li>'
-    );
-
-    // node anak untuk tree
-    treeChildren +=
-      '<div class="bom-node">'
-      +   '<div class="bom-node-title">' + c.name + '</div>'
-      +   '<div class="bom-node-qty">'
-      +       c.qtyPerUnit + 'x / unit · ' + total + 'x total'
-      +   '</div>'
-      + '</div>';
-
-    tableHtml +=
-      '<tr>'
-      + '<td>' + c.name + '</td>'
-      + '<td>' + c.qtyPerUnit + '</td>'
-      + '<td>' + total + '</td>'
+    tableHtml += '<tr>'
+      + '<td>' + name + '</td>'
+      + '<td>' + keterangan + '</td>'
+      + '<td>' + perUnit + '</td>'
+      + '<td>' + totalForLot + '</td>'
       + '</tr>';
   });
 
   tableHtml += '</table>';
 
   // ===== LANGKAH PERHITUNGAN =====
-  const langkahHTML =
-    '<h3>2. Langkah Perhitungan</h3>'
-    + '<p>Rumus dasar BOM:<br>'
-    + '<em>Total Komponen = (Qty per Unit) × (Jumlah Produk)</em>'
-    + '</p>'
-    + '<ol>' + langkahList.join('') + '</ol>';
+  let langkahHtml = '<h3>2. Langkah Perhitungan</h3>';
+  langkahHtml += '<p>Rumus umum:<br>'
+    + '<em>Total anak = (kebutuhan parent) × (qty anak per 1 parent)</em></p>';
+  langkahHtml += '<ol>';
+  steps.forEach(s => {
+    langkahHtml += '<li>' + s + '</li>';
+  });
+  langkahHtml += '</ol>';
 
-  // ===== STRUKTUR TREE =====
+  // ===== STRUKTUR TREE (REKURSIF) =====
+  function renderNode(name, parent) {
+    const children = childrenMap[name] || [];
+    const isRoot = parent === null;
+    const totalQty = totals[name] || 0;
+    const perParent = parent ? (qtyPerParentMap[parent + '||' + name] || null) : null;
+
+    let html = '<div class="bom-tree-branch">';
+    html += '<div class="bom-node' + (isRoot ? ' bom-node-root' : '') + '">';
+    html += '<div class="bom-node-title">' + name + '</div>';
+    html += '<div class="bom-node-qty">';
+    if (perParent) {
+      html += perParent + 'x / parent · ';
+    }
+    html += totalQty + 'x total';
+    html += '</div></div>'; // node
+
+    if (children.length) {
+      html += '<div class="bom-tree-children">';
+      children.forEach(child => {
+        html += renderNode(child.name, name);
+      });
+      html += '</div>';
+    }
+
+    html += '</div>'; // branch
+    return html;
+  }
+
   const treeHtml =
     '<h3>3. Struktur BOM (Tree)</h3>'
-    + '<p>Visualisasi hubungan antara produk jadi dengan komponen penyusunnya.</p>'
+    + '<p>Visualisasi hubungan antara produk utama dengan sub-assembly dan komponen di semua level.</p>'
     + '<div class="bom-tree">'
-    +   '<div class="bom-tree-root">'
-    +     '<div class="bom-node bom-node-root">'
-    +       '<div class="bom-node-title">' + productName + '</div>'
-    +       '<div class="bom-node-qty">' + productQty + 'x</div>'
-    +     '</div>'
-    +     '<div class="bom-tree-children">'
-    +       treeChildren
-    +     '</div>'
-    +   '</div>'
+    + renderNode(productName, null)
     + '</div>';
 
-  // ===== KESIMPULAN =====
   const kesimpulan =
     '<h3>4. Kesimpulan</h3>'
     + '<p>Untuk memproduksi <strong>' + productQty + '</strong> unit '
-    + '<strong>' + productName + '</strong>, dibutuhkan material sesuai '
-    + 'tabel perhitungan dan struktur BOM di atas.</p>';
+    + '<strong>' + productName + '</strong>, dibutuhkan item-item sesuai '
+    + 'rekap perhitungan dan struktur BOM di atas.</p>';
 
   const resDiv = document.getElementById('result');
-  resDiv.innerHTML = tableHtml + langkahHTML + treeHtml + kesimpulan;
+  resDiv.innerHTML = tableHtml + langkahHtml + treeHtml + kesimpulan;
   resDiv.style.display = 'block';
 
-  // ====== CHART ======
+  // ===== CHART (hanya komponen selain produk utama) =====
+  const chartLabels = [];
+  const chartTotals = [];
+  names.forEach(name => {
+    if (name === productName) return;
+    chartLabels.push(name);
+    chartTotals.push(totals[name]);
+  });
+
   if (bomChart) bomChart.destroy();
   const ctx = document.getElementById('bomChart').getContext('2d');
   bomChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: labels,
+      labels: chartLabels,
       datasets: [{
         label: 'Kebutuhan Total Komponen',
-        data: totals
+        data: chartTotals
       }]
     },
     options: {
