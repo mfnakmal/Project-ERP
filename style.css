@@ -424,6 +424,139 @@ footer {
   color: var(--text-muted);
 }
 
+/* INTRO SCREEN */
+.intro-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: radial-gradient(circle at top, #0f172a 0, #020617 60%, #000 100%);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.95);
+  animation: introFadeIn 0.7s ease-out forwards;
+}
+
+.intro-inner {
+  max-width: 640px;
+  width: 100%;
+  background: rgba(15, 23, 42, 0.96);
+  border-radius: 22px;
+  padding: 26px 20px 22px;
+  border: 1px solid rgba(148, 163, 184, 0.55);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.95);
+  text-align: left;
+}
+
+.intro-kicker {
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 6px;
+}
+
+.intro-inner h1 {
+  margin: 0 0 8px;
+  font-size: 1.4rem;
+}
+
+.intro-sub {
+  margin: 0 0 14px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.intro-team {
+  margin-bottom: 18px;
+}
+
+.intro-team-title {
+  font-size: 0.88rem;
+  margin: 0 0 6px;
+  color: var(--text-muted);
+}
+
+.intro-team ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.intro-team li::before {
+  content: "•";
+  margin-right: 6px;
+  color: var(--accent);
+}
+
+.intro-team li {
+  margin-bottom: 3px;
+}
+
+.intro-button {
+  margin-top: 10px;
+  width: auto;
+  padding-inline: 18px;
+}
+
+/* anim hide intro */
+.intro-hidden {
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+/* WRAPPER DASHBOARD – awalnya tertutup, lalu "kebuka" dari bawah */
+#dashboard {
+  /* tidak harus apa-apa di sini, main layout tetep pakai aturan header/main lama */
+}
+
+.dashboard-clipped {
+  clip-path: inset(100% 0 0 0);
+  opacity: 0;
+  transform: translateY(40px);
+  pointer-events: none;
+}
+
+.dashboard-reveal {
+  animation: dashboardSlideUp 0.8s cubic-bezier(0.22, 0.61, 0.36, 1) forwards;
+}
+
+@keyframes dashboardSlideUp {
+  from {
+    clip-path: inset(100% 0 0 0);
+    opacity: 0;
+    transform: translateY(40px);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+@keyframes introFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 640px) {
+  .intro-inner {
+    padding: 20px 16px 18px;
+  }
+}
+
+
 /* RESPONSIVE */
 @media (max-width: 640px) {
   header {

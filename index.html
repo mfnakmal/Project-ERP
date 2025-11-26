@@ -6,88 +6,137 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header>
-  <div class="header-inner">
-    <div class="brand">
-      <div class="brand-logo">E</div>
-      <div class="brand-text">
-        <h1>ERP Tools Dashboard</h1>
-        <p>Kumpulan mini-tool untuk perhitungan ERP & analisis data.</p>
-      </div>
+
+<!-- INTRO / HALAMAN PEMBUKA -->
+<div id="intro" class="intro-screen">
+  <div class="intro-inner">
+    <p class="intro-kicker">Selamat datang di</p>
+    <h1>Website Project ERP Tools</h1>
+    <p class="intro-sub">
+      Sebuah project tugas mata kuliah yang kami susun untuk membantu perhitungan dan
+      analisis sederhana di bidang Enterprise Resource Planning.
+    </p>
+
+    <div class="intro-team">
+      <p class="intro-team-title">Disusun oleh:</p>
+      <ul>
+        <li>Muhammad Fauzan Akmal – 23311043</li>
+        <li>Galih Saputra – 23311120</li>
+        <li>Juhen Hendry – 24381007P</li>
+        <li>Marta Santra Wijaya – 24381004P</li>
+      </ul>
     </div>
-    <div class="header-badge">Project Kuliah</div>
+
+    <button id="introButton" class="intro-button">
+      <span>Buka ERP Tools Dashboard</span>
+    </button>
   </div>
-</header>
+</div>
 
-<main>
-  <section class="menu-container">
-    <a href="forecasting.html" class="card">
-      <div class="card-icon">📈</div>
-      <h2>Forecasting</h2>
-      <p>Peramalan permintaan berbasis data historis dengan trend linear.</p>
-      <div class="card-meta">
-        <span class="card-tag">Trend Linear</span>
-        <span class="card-tag">Grafik</span>
+<!-- WRAPPER DASHBOARD (dislide dari bawah) -->
+<div id="dashboard" class="dashboard-clipped">
+  <header>
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-logo">E</div>
+        <div class="brand-text">
+          <h1>ERP Tools Dashboard</h1>
+          <p>Kumpulan mini-tool untuk perhitungan ERP &amp; analisis data.</p>
+        </div>
       </div>
-    </a>
+      <div class="header-badge">Project Kuliah</div>
+    </div>
+  </header>
 
-    <a href="jsm.html" class="card">
-      <div class="card-icon">🛠️</div>
-      <h2>Johnson’s Rule (JSM)</h2>
-      <p>Penjadwalan 2–3 mesin untuk meminimalkan makespan lengkap dengan idle time.</p>
-      <div class="card-meta">
-        <span class="card-tag">Scheduling</span>
-        <span class="card-tag">Gantt-style</span>
-      </div>
-    </a>
+  <main>
+    <section class="menu-container">
+      <a href="forecasting.html" class="card">
+        <div class="card-icon">📈</div>
+        <h2>Forecasting</h2>
+        <p>Peramalan permintaan berbasis data historis dengan trend linear.</p>
+        <div class="card-meta">
+          <span class="card-tag">Trend Linear</span>
+          <span class="card-tag">Grafik</span>
+        </div>
+      </a>
 
-    <a href="saw.html" class="card">
-      <div class="card-icon">⚖️</div>
-      <h2>Metode SAW</h2>
-      <p>Sistem pendukung keputusan yang mendukung kriteria cost &amp; benefit.</p>
-      <div class="card-meta">
-        <span class="card-tag">SPK</span>
-        <span class="card-tag">Cost/Benefit</span>
-      </div>
-    </a>
+      <a href="jsm.html" class="card">
+        <div class="card-icon">🛠️</div>
+        <h2>Johnson’s Rule (JSM)</h2>
+        <p>Penjadwalan 2–3 mesin untuk meminimalkan makespan lengkap dengan idle time.</p>
+        <div class="card-meta">
+          <span class="card-tag">Scheduling</span>
+          <span class="card-tag">Gantt-style</span>
+        </div>
+      </a>
 
-    <a href="marketbasket.html" class="card">
-      <div class="card-icon">🛒</div>
-      <h2>Market Basket Analysis</h2>
-      <p>Analisis asosiasi barang dengan support &amp; confidence (2-itemset).</p>
-      <div class="card-meta">
-        <span class="card-tag">Apriori-lite</span>
-        <span class="card-tag">Pattern</span>
-      </div>
-    </a>
+      <a href="saw.html" class="card">
+        <div class="card-icon">⚖️</div>
+        <h2>Metode SAW</h2>
+        <p>Sistem pendukung keputusan yang mendukung kriteria cost &amp; benefit.</p>
+        <div class="card-meta">
+          <span class="card-tag">SPK</span>
+          <span class="card-tag">Cost/Benefit</span>
+        </div>
+      </a>
 
-    <a href="bom.html" class="card">
-      <div class="card-icon">📦</div>
-      <h2>Bill of Material</h2>
-      <p>Perhitungan kebutuhan material & langkah perhitungan untuk produksi.</p>
-      <div class="card-meta">
-        <span class="card-tag">Produksi</span>
-        <span class="card-tag">BOM</span>
-      </div>
-    </a>
-  </section>
-</main>
+      <a href="marketbasket.html" class="card">
+        <div class="card-icon">🛒</div>
+        <h2>Market Basket Analysis</h2>
+        <p>Analisis asosiasi barang dengan support &amp; confidence (2-itemset).</p>
+        <div class="card-meta">
+          <span class="card-tag">Apriori-lite</span>
+          <span class="card-tag">Pattern</span>
+        </div>
+      </a>
 
-<footer>
-  <small>© 2025 ERP Tools – RPL Team</small>
-</footer>
+      <a href="bom.html" class="card">
+        <div class="card-icon">📦</div>
+        <h2>Bill of Material</h2>
+        <p>Perhitungan kebutuhan material &amp; langkah perhitungan untuk produksi.</p>
+        <div class="card-meta">
+          <span class="card-tag">Produksi</span>
+          <span class="card-tag">BOM</span>
+        </div>
+      </a>
+    </section>
+  </main>
+
+  <footer>
+    <small>© 2025 ERP Tools – RPL Team</small>
+  </footer>
+</div>
 
 <script>
-  // Animasi global untuk semua halaman
   document.addEventListener("DOMContentLoaded", () => {
     document.body.classList.add("page-loaded");
 
-    const animatedBlocks = document.querySelectorAll(".card, .form-section");
-    animatedBlocks.forEach((el, idx) => {
-      el.style.animationDelay = (idx * 0.08) + "s";
-      el.classList.add("slide-up");
-    });
+    const intro = document.getElementById("intro");
+    const introBtn = document.getElementById("introButton");
+    const dashboard = document.getElementById("dashboard");
 
+    function showDashboard() {
+      // intro slide ke atas + fade
+      intro.classList.add("intro-hidden");
+
+      // setelah intro hilang, baru dashboard dibuka dari bawah
+      setTimeout(() => {
+        intro.style.display = "none";
+        dashboard.classList.add("dashboard-reveal");
+        dashboard.style.pointerEvents = "auto";
+
+        // animasi card naik satu-satu
+        const animatedBlocks = dashboard.querySelectorAll(".card, .form-section");
+        animatedBlocks.forEach((el, idx) => {
+          el.style.animationDelay = (idx * 0.08) + "s";
+          el.classList.add("slide-up");
+        });
+      }, 250); // jeda dikit biar transisi berasa nyambung
+    }
+
+    introBtn.addEventListener("click", showDashboard);
+
+    // Ripple effect untuk semua tombol (termasuk tombol intro)
     document.querySelectorAll("button").forEach(btn => {
       btn.addEventListener("click", (e) => {
         const rect = btn.getBoundingClientRect();

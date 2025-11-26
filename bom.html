@@ -2,9 +2,96 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <title>Bill of Material - ERP Tools</title>
+  <title>Bill of Material (BOM)</title>
   <link rel="stylesheet" href="style.css">
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- CSS khusus tree BOM -->
+  <style>
+    .bom-tree {
+      margin-top: 16px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .bom-tree-root {
+      text-align: center;
+      position: relative;
+      padding-bottom: 18px;
+    }
+
+    .bom-node {
+      display: inline-flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(148, 163, 184, 0.7);
+      box-shadow: 0 14px 30px rgba(15, 23, 42, 0.9);
+      font-size: 0.86rem;
+      min-width: 120px;
+    }
+
+    .bom-node-root {
+      background: radial-gradient(circle at 30% 0, rgba(56, 189, 248, 0.35), rgba(15, 23, 42, 0.96));
+      border-color: rgba(56, 189, 248, 0.8);
+      margin-bottom: 22px;
+    }
+
+    .bom-node-title {
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .bom-node-qty {
+      font-size: 0.78rem;
+      color: #9ca3af;
+    }
+
+    .bom-tree-children {
+      margin-top: 12px;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      position: relative;
+      padding-top: 18px;
+    }
+
+    /* garis vertikal dari root ke baris anak */
+    .bom-tree-children::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 2px;
+      height: 16px;
+      background: rgba(148, 163, 184, 0.7);
+    }
+
+    /* garis kecil di atas tiap node anak */
+    .bom-node::before {
+      content: "";
+      position: absolute;
+      top: -12px;
+      width: 1px;
+      height: 12px;
+      background: rgba(148, 163, 184, 0.7);
+    }
+
+    .bom-node-root::before {
+      content: none;
+    }
+
+    @media (max-width: 640px) {
+      .bom-node {
+        min-width: 100px;
+        padding-inline: 10px;
+      }
+    }
+  </style>
 </head>
 <body>
 <header>
@@ -44,6 +131,7 @@
   </section>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 let bomChart = null;
 
@@ -75,22 +163,18 @@ function hitungBOM() {
   }
 
   // ===== TABEL OUTPUT =====
-  let tableHtml = `
-    <h2>Hasil Perhitungan BOM</h2>
-    <p>Produk: <strong>${productName}</strong><br>
-    Jumlah produksi: <strong>${productQty}</strong> unit</p>
-
-    <h3>1. Tabel Kebutuhan Komponen</h3>
-    <table>
-      <tr>
-        <th>Komponen</th>
-        <th>Qty per Unit</th>
-        <th>Qty Total</th>
-      </tr>`;
+  let tableHtml = ''
+    + '<h2>Hasil Perhitungan BOM</h2>'
+    + '<p>Produk: <strong>' + productName + '</strong><br>'
+    + 'Jumlah produksi: <strong>' + productQty + '</strong> unit</p>'
+    + '<h3>1. Tabel Kebutuhan Komponen</h3>'
+    + '<table>'
+    + '<tr><th>Komponen</th><th>Qty per Unit</th><th>Qty Total</th></tr>';
 
   const labels = [];
   const totals = [];
   const langkahList = [];
+  let treeChildren = '';
 
   components.forEach(c => {
     const total = c.qtyPerUnit * productQty;
@@ -98,46 +182,67 @@ function hitungBOM() {
     labels.push(c.name);
     totals.push(total);
 
-    // detail langkah perhitungan
+    // detail langkah per komponen
     langkahList.push(
-      `<li><strong>${c.name}</strong>:<br>
-        Total = qty/unit × jumlah produksi <br>
-        Total = ${c.qtyPerUnit} × ${productQty} = <strong>${total}</strong>
-      </li>`
+      '<li><strong>' + c.name + '</strong>:<br>'
+      + 'Total = qty/unit × jumlah produksi<br>'
+      + 'Total = ' + c.qtyPerUnit + ' × ' + productQty
+      + ' = <strong>' + total + '</strong></li>'
     );
 
-    tableHtml += `
-      <tr>
-        <td>${c.name}</td>
-        <td>${c.qtyPerUnit}</td>
-        <td>${total}</td>
-      </tr>`;
+    // node anak untuk tree
+    treeChildren +=
+      '<div class="bom-node">'
+      +   '<div class="bom-node-title">' + c.name + '</div>'
+      +   '<div class="bom-node-qty">'
+      +       c.qtyPerUnit + 'x / unit · ' + total + 'x total'
+      +   '</div>'
+      + '</div>';
+
+    tableHtml +=
+      '<tr>'
+      + '<td>' + c.name + '</td>'
+      + '<td>' + c.qtyPerUnit + '</td>'
+      + '<td>' + total + '</td>'
+      + '</tr>';
   });
 
-  tableHtml += `</table>`;
+  tableHtml += '</table>';
 
   // ===== LANGKAH PERHITUNGAN =====
-  const langkahHTML = `
-    <h3>2. Langkah Perhitungan</h3>
-    <p>Rumus dasar BOM:<br>
-       <em>Total Komponen = (Qty per Unit) × (Jumlah Produk)</em>
-    </p>
-    <ol>${langkahList.join('')}</ol>
-  `;
+  const langkahHTML =
+    '<h3>2. Langkah Perhitungan</h3>'
+    + '<p>Rumus dasar BOM:<br>'
+    + '<em>Total Komponen = (Qty per Unit) × (Jumlah Produk)</em>'
+    + '</p>'
+    + '<ol>' + langkahList.join('') + '</ol>';
+
+  // ===== STRUKTUR TREE =====
+  const treeHtml =
+    '<h3>3. Struktur BOM (Tree)</h3>'
+    + '<p>Visualisasi hubungan antara produk jadi dengan komponen penyusunnya.</p>'
+    + '<div class="bom-tree">'
+    +   '<div class="bom-tree-root">'
+    +     '<div class="bom-node bom-node-root">'
+    +       '<div class="bom-node-title">' + productName + '</div>'
+    +       '<div class="bom-node-qty">' + productQty + 'x</div>'
+    +     '</div>'
+    +     '<div class="bom-tree-children">'
+    +       treeChildren
+    +     '</div>'
+    +   '</div>'
+    + '</div>';
 
   // ===== KESIMPULAN =====
-  const kesimpulan = `
-    <h3>3. Kesimpulan</h3>
-    <p>
-      Untuk memproduksi <strong>${productQty}</strong> unit 
-      <strong>${productName}</strong>, dibutuhkan material sesuai 
-      tabel dan langkah perhitungan di atas. 
-    </p>
-  `;
+  const kesimpulan =
+    '<h3>4. Kesimpulan</h3>'
+    + '<p>Untuk memproduksi <strong>' + productQty + '</strong> unit '
+    + '<strong>' + productName + '</strong>, dibutuhkan material sesuai '
+    + 'tabel perhitungan dan struktur BOM di atas.</p>';
 
-  // gabung semua
-  document.getElementById('result').innerHTML = tableHtml + langkahHTML + kesimpulan;
-  document.getElementById('result').style.display = 'block';
+  const resDiv = document.getElementById('result');
+  resDiv.innerHTML = tableHtml + langkahHTML + treeHtml + kesimpulan;
+  resDiv.style.display = 'block';
 
   // ====== CHART ======
   if (bomChart) bomChart.destroy();
@@ -145,7 +250,7 @@ function hitungBOM() {
   bomChart = new Chart(ctx, {
     type: 'bar',
     data: {
-      labels,
+      labels: labels,
       datasets: [{
         label: 'Kebutuhan Total Komponen',
         data: totals
@@ -159,19 +264,15 @@ function hitungBOM() {
 }
 
 // Animasi tombol & page load
-// Animasi tombol & page load
 document.addEventListener("DOMContentLoaded", () => {
-  // efek fade-in body
   document.body.classList.add("page-loaded");
 
-  // animasi form-section (biar nggak opacity 0 terus)
   const blocks = document.querySelectorAll(".card, .form-section");
   blocks.forEach((el, idx) => {
     el.style.animationDelay = (idx * 0.08) + "s";
     el.classList.add("slide-up");
   });
 
-  // ripple button
   document.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", (e) => {
       const rect = btn.getBoundingClientRect();
@@ -179,11 +280,10 @@ document.addEventListener("DOMContentLoaded", () => {
       const diameter = Math.max(rect.width, rect.height);
       const radius = diameter / 2;
 
-      circle.style.width = `${diameter}px`;
-      circle.style.height = `${diameter}px`;
+      circle.style.width = circle.style.height = diameter + "px";
       circle.style.position = "absolute";
-      circle.style.left = `${e.clientX - rect.left - radius}px`;
-      circle.style.top  = `${e.clientY - rect.top  - radius}px`;
+      circle.style.left = (e.clientX - rect.left - radius) + "px";
+      circle.style.top  = (e.clientY - rect.top  - radius) + "px";
       circle.style.borderRadius = "50%";
       circle.style.pointerEvents = "none";
       circle.style.background = "rgba(255,255,255,0.25)";
@@ -203,8 +303,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
-
 </script>
-
 </body>
 </html>
