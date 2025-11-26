@@ -172,38 +172,72 @@ function johnsonSequence(pseudoJobs) {
   return { sequence: seq, steps: steps };
 }
 
-// Hitung jadwal & makespan
+// Hitung jadwal & makespan + langkah waktu
 function hitungJadwal(sequence, machineCount) {
+  // completion[m] = waktu selesai terakhir di mesin m
   var completion = [];
   for (var i = 0; i < machineCount; i++) {
     completion.push(0);
   }
 
   var timeline = [];
+  var detailSteps = [];
 
   for (var j = 0; j < sequence.length; j++) {
     var job = sequence[j];
-    var jobComp = [];
+    var startTimes = [];
+    var finishTimes = [];
 
     for (var m = 0; m < machineCount; m++) {
+      var start, finish, text;
+
       if (m === 0) {
-        completion[m] = completion[m] + job.times[m];
+        // Mesin pertama: lanjut dari waktu selesai job sebelumnya di M1
+        var prevSame = completion[m];
+        start = prevSame;
+        finish = start + job.times[m];
+
+        text = 'Job ' + job.name + ' di M1: waktu mulai = ' + start +
+               ' (lanjutan dari waktu selesai job sebelumnya di M1), ' +
+               'waktu selesai = ' + start + ' + ' + job.times[m] +
+               ' = ' + finish + '.';
       } else {
-        var start = completion[m] > completion[m - 1] ? completion[m] : completion[m - 1];
-        completion[m] = start + job.times[m];
+        // Mesin ke-2 atau ke-3:
+        // start = max( selesai job sebelumnya di mesin ini, selesai job ini di mesin sebelumnya )
+        var prevSameMachine = completion[m];
+        var prevMachineFinish = finishTimes[m - 1];
+
+        start = prevSameMachine > prevMachineFinish
+          ? prevSameMachine
+          : prevMachineFinish;
+
+        finish = start + job.times[m];
+
+        text = 'Job ' + job.name + ' di M' + (m + 1) +
+               ': waktu mulai = max(selesai job sebelumnya di M' + (m + 1) +
+               ' = ' + prevSameMachine + ', selesai job ini di M' + m +
+               ' = ' + prevMachineFinish + ') = ' + start +
+               '; waktu selesai = ' + start + ' + ' + job.times[m] +
+               ' = ' + finish + '.';
       }
-      jobComp.push(completion[m]);
+
+      completion[m] = finish;
+      startTimes.push(start);
+      finishTimes.push(finish);
+      detailSteps.push(text);
     }
 
     timeline.push({
       name: job.name,
-      completion: jobComp
+      start: startTimes,
+      completion: finishTimes
     });
   }
 
   return {
     timeline: timeline,
-    makespan: completion[machineCount - 1]
+    makespan: completion[machineCount - 1],
+    detailSteps: detailSteps
   };
 }
 
@@ -233,6 +267,7 @@ function hitungJohnson() {
   var jadwal = hitungJadwal(sequence, machineCount);
   var timeline = jadwal.timeline;
   var makespan = jadwal.makespan;
+  var detailSteps = jadwal.detailSteps;
 
   // ====== BUILD REPORT HTML ======
 
@@ -312,7 +347,20 @@ function hitungJohnson() {
   }
   scheduleTable += '</table>';
 
-  // 6. Idle time per mesin
+  // 6. Langkah perhitungan waktu mulai & selesai
+  var langkahWaktuHtml = '<h3>6. Langkah Perhitungan Waktu Mulai &amp; Selesai</h3>';
+  langkahWaktuHtml += '<p>Rumus umum untuk setiap operasi (job ke-i pada mesin ke-j):<br>' +
+    '<em>Start(i,j) = max( C(i-1,j), C(i,j-1) )</em> untuk j &gt; 1<br>' +
+    '<em>Start(i,1) = C(i-1,1)</em> untuk mesin pertama<br>' +
+    '<em>Finish(i,j) = Start(i,j) + p(i,j)</em>, dengan p(i,j) = waktu proses job i di mesin j.</p>';
+
+  langkahWaktuHtml += '<ol>';
+  for (var ls = 0; ls < detailSteps.length; ls++) {
+    langkahWaktuHtml += '<li>' + detailSteps[ls] + '</li>';
+  }
+  langkahWaktuHtml += '</ol>';
+
+  // 7. Idle time per mesin
   // Total waktu proses tiap mesin
   var totalProc = [];
   for (var i2 = 0; i2 < machineCount; i2++) {
@@ -325,7 +373,7 @@ function hitungJohnson() {
     }
   }
 
-  var idleTable = '<h3>6. Waktu Menganggur (Idle Time) Tiap Mesin</h3>';
+  var idleTable = '<h3>7. Waktu Menganggur (Idle Time) Tiap Mesin</h3>';
   idleTable += '<p>Idle time dihitung dengan rumus:<br>' +
                '<em>Idle Time Mesin m = Makespan - Σ waktu proses Mesin m</em><br>' +
                'dengan rentang waktu dari 0 sampai makespan pada mesin terakhir.</p>';
@@ -357,6 +405,7 @@ function hitungJohnson() {
                    stepTable +
                    orderHtml +
                    scheduleTable +
+                   langkahWaktuHtml +
                    idleTable +
                    kesimpulan;
 

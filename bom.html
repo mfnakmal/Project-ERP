@@ -34,7 +34,7 @@
     </p>
     <textarea id="componentsInput" rows="8" placeholder="Kaki Meja,4&#10;Daun Meja,1&#10;Baut,16"></textarea>
 
-<button onclick="hitungBOM()"><span>Hitung Kebutuhan Material</span></button>
+    <button onclick="hitungBOM()"><span>Hitung Kebutuhan Material</span></button>
 
     <div id="result" class="result" style="display:none;"></div>
 
@@ -74,38 +74,72 @@ function hitungBOM() {
     return;
   }
 
-  let tableHtml = '<table><tr><th>Komponen</th><th>Qty per Unit</th><th>Qty Total</th></tr>';
-  const labels = [];
-  const totals = [];
-
-  components.forEach(c => {
-    const total = c.qtyPerUnit * productQty;
-    labels.push(c.name);
-    totals.push(total);
-    tableHtml += `<tr>
-      <td>${c.name}</td>
-      <td>${c.qtyPerUnit}</td>
-      <td>${total}</td>
-    </tr>`;
-  });
-  tableHtml += '</table>';
-
-  const report = `
+  // ===== TABEL OUTPUT =====
+  let tableHtml = `
     <h2>Hasil Perhitungan BOM</h2>
     <p>Produk: <strong>${productName}</strong><br>
     Jumlah produksi: <strong>${productQty}</strong> unit</p>
-    ${tableHtml}
-    <p><strong>Laporan / Kesimpulan:</strong><br>
-    Untuk memproduksi <strong>${productQty}</strong> unit 
-    <strong>${productName}</strong>, dibutuhkan komponen seperti pada tabel di atas. 
-    Nilai total setiap komponen diperoleh dari 
-    <em>jumlah per unit × jumlah produksi</em>.</p>
+
+    <h3>1. Tabel Kebutuhan Komponen</h3>
+    <table>
+      <tr>
+        <th>Komponen</th>
+        <th>Qty per Unit</th>
+        <th>Qty Total</th>
+      </tr>`;
+
+  const labels = [];
+  const totals = [];
+  const langkahList = [];
+
+  components.forEach(c => {
+    const total = c.qtyPerUnit * productQty;
+
+    labels.push(c.name);
+    totals.push(total);
+
+    // detail langkah perhitungan
+    langkahList.push(
+      `<li><strong>${c.name}</strong>:<br>
+        Total = qty/unit × jumlah produksi <br>
+        Total = ${c.qtyPerUnit} × ${productQty} = <strong>${total}</strong>
+      </li>`
+    );
+
+    tableHtml += `
+      <tr>
+        <td>${c.name}</td>
+        <td>${c.qtyPerUnit}</td>
+        <td>${total}</td>
+      </tr>`;
+  });
+
+  tableHtml += `</table>`;
+
+  // ===== LANGKAH PERHITUNGAN =====
+  const langkahHTML = `
+    <h3>2. Langkah Perhitungan</h3>
+    <p>Rumus dasar BOM:<br>
+       <em>Total Komponen = (Qty per Unit) × (Jumlah Produk)</em>
+    </p>
+    <ol>${langkahList.join('')}</ol>
   `;
 
-  const resDiv = document.getElementById('result');
-  resDiv.innerHTML = report;
-  resDiv.style.display = 'block';
+  // ===== KESIMPULAN =====
+  const kesimpulan = `
+    <h3>3. Kesimpulan</h3>
+    <p>
+      Untuk memproduksi <strong>${productQty}</strong> unit 
+      <strong>${productName}</strong>, dibutuhkan material sesuai 
+      tabel dan langkah perhitungan di atas. 
+    </p>
+  `;
 
+  // gabung semua
+  document.getElementById('result').innerHTML = tableHtml + langkahHTML + kesimpulan;
+  document.getElementById('result').style.display = 'block';
+
+  // ====== CHART ======
   if (bomChart) bomChart.destroy();
   const ctx = document.getElementById('bomChart').getContext('2d');
   bomChart = new Chart(ctx, {
@@ -124,49 +158,53 @@ function hitungBOM() {
   });
 }
 
- // Animasi global untuk semua halaman
-  document.addEventListener("DOMContentLoaded", () => {
-    // efek fade-in body
-    document.body.classList.add("page-loaded");
+// Animasi tombol & page load
+// Animasi tombol & page load
+document.addEventListener("DOMContentLoaded", () => {
+  // efek fade-in body
+  document.body.classList.add("page-loaded");
 
-    // animasi kartu menu (di index) dan form-section (di halaman lain)
-    const animatedBlocks = document.querySelectorAll(".card, .form-section");
-    animatedBlocks.forEach((el, idx) => {
-      el.style.animationDelay = (idx * 0.08) + "s";
-      el.classList.add("slide-up");
-    });
+  // animasi form-section (biar nggak opacity 0 terus)
+  const blocks = document.querySelectorAll(".card, .form-section");
+  blocks.forEach((el, idx) => {
+    el.style.animationDelay = (idx * 0.08) + "s";
+    el.classList.add("slide-up");
+  });
 
-    // animasi klik tombol (ripple sederhana)
-    document.querySelectorAll("button").forEach(btn => {
-      btn.addEventListener("click", (e) => {
-        const rect = btn.getBoundingClientRect();
-        const circle = document.createElement("span");
-        const diameter = Math.max(rect.width, rect.height);
-        const radius = diameter / 2;
+  // ripple button
+  document.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      const rect = btn.getBoundingClientRect();
+      const circle = document.createElement("span");
+      const diameter = Math.max(rect.width, rect.height);
+      const radius = diameter / 2;
 
-        circle.style.width = circle.style.height = `${diameter}px`;
-        circle.style.position = "absolute";
-        circle.style.left = `${e.clientX - rect.left - radius}px`;
-        circle.style.top = `${e.clientY - rect.top - radius}px`;
-        circle.style.borderRadius = "50%";
-        circle.style.pointerEvents = "none";
-        circle.style.background = "rgba(255,255,255,0.25)";
-        circle.style.transform = "scale(0)";
-        circle.style.opacity = "0.85";
-        circle.style.transition = "transform 0.35s ease-out, opacity 0.4s ease-out";
+      circle.style.width = `${diameter}px`;
+      circle.style.height = `${diameter}px`;
+      circle.style.position = "absolute";
+      circle.style.left = `${e.clientX - rect.left - radius}px`;
+      circle.style.top  = `${e.clientY - rect.top  - radius}px`;
+      circle.style.borderRadius = "50%";
+      circle.style.pointerEvents = "none";
+      circle.style.background = "rgba(255,255,255,0.25)";
+      circle.style.transform = "scale(0)";
+      circle.style.opacity = "0.85";
+      circle.style.transition = "transform 0.35s ease-out, opacity 0.4s ease-out";
 
-        btn.style.position = "relative";
-        btn.appendChild(circle);
+      btn.style.position = "relative";
+      btn.appendChild(circle);
 
-        requestAnimationFrame(() => {
-          circle.style.transform = "scale(1.6)";
-          circle.style.opacity = "0";
-        });
-
-        setTimeout(() => circle.remove(), 420);
+      requestAnimationFrame(() => {
+        circle.style.transform = "scale(1.6)";
+        circle.style.opacity = "0";
       });
+
+      setTimeout(() => circle.remove(), 420);
     });
   });
+});
+
 </script>
+
 </body>
 </html>

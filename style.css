@@ -1,8 +1,10 @@
 :root {
-  --bg-main: #0f172a;
-  --bg-card: #0b1120;
+  --bg-main: #020617;
+  --bg-panel: rgba(15, 23, 42, 0.96);
+  --bg-card: rgba(15, 23, 42, 0.96);
   --accent: #38bdf8;
   --accent-soft: rgba(56, 189, 248, 0.18);
+  --accent-green: #22c55e;
   --text-main: #e5e7eb;
   --text-muted: #9ca3af;
   --border-soft: rgba(148, 163, 184, 0.35);
@@ -18,14 +20,39 @@
 body {
   margin: 0;
   padding: 0;
-  background: radial-gradient(circle at top, #1f2937 0, #020617 55%, #020617 100%);
-  color: var(--text-main);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  color: var(--text-main);
+  background: radial-gradient(circle at top, #1f2937 0, #020617 55%, #000 100%);
+  position: relative;
+  overflow-x: hidden;
   opacity: 0;
   transform: translateY(8px);
   transition: opacity 0.4s ease-out, transform 0.4s ease-out;
+}
+
+/* animasi gradient halus */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -40%;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(56, 189, 248, 0.22), transparent 60%),
+    radial-gradient(circle at 90% 100%, rgba(34, 197, 94, 0.15), transparent 60%);
+  opacity: 0.65;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  animation: floatGlow 16s ease-in-out infinite alternate;
+}
+
+@keyframes floatGlow {
+  from {
+    transform: translate3d(-10px, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(10px, -10px, 0) scale(1.03);
+  }
 }
 
 body.page-loaded {
@@ -33,34 +60,76 @@ body.page-loaded {
   transform: translateY(0);
 }
 
+/* HEADER / TOP BAR */
 header {
-  text-align: center;
-  padding: 24px 16px 18px;
-  background: linear-gradient(
-    135deg,
-    rgba(15, 23, 42, 0.96),
-    rgba(15, 23, 42, 0.9),
-    rgba(15, 118, 110, 0.75)
-  );
-  border-bottom: 1px solid rgba(148, 163, 184, 0.25);
   position: sticky;
   top: 0;
-  z-index: 10;
-  backdrop-filter: blur(14px);
+  z-index: 20;
+  padding: 14px 20px 10px;
+  backdrop-filter: blur(18px);
+  background: linear-gradient(
+    120deg,
+    rgba(15, 23, 42, 0.92),
+    rgba(15, 23, 42, 0.88),
+    rgba(8, 47, 73, 0.9)
+  );
+  border-bottom: 1px solid rgba(148, 163, 184, 0.4);
+  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.9);
 }
 
-header h1 {
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.brand-logo {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 30% 0, #38bdf8, #22c55e);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0b1120;
+  font-weight: 700;
+  font-size: 0.95rem;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.9), 0 0 18px rgba(56, 189, 248, 0.7);
+}
+
+.brand-text h1 {
   margin: 0;
-  font-size: 1.7rem;
+  font-size: 1.2rem;
   letter-spacing: 0.04em;
 }
 
-header p {
-  margin: 6px 0 0;
-  font-size: 0.95rem;
+.brand-text p {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
   color: var(--text-muted);
 }
 
+.header-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: 1px solid rgba(56, 189, 248, 0.7);
+  background: radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.18), transparent 70%);
+  color: var(--accent);
+}
+
+/* MAIN WRAPPER */
 main {
   padding: 20px;
   max-width: 1100px;
@@ -73,45 +142,34 @@ main {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 18px;
-  margin-top: 10px;
+  margin-top: 16px;
 }
 
 .card {
   position: relative;
   display: block;
   padding: 18px 16px 16px;
-  background: radial-gradient(circle at top left, #0f172a 0, #020617 70%);
-  border-radius: 14px;
+  background: radial-gradient(circle at top left, #0b1120 0, #020617 70%);
+  border-radius: 18px;
   text-decoration: none;
   color: inherit;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  box-shadow: 0 18px 45px rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.9);
   overflow: hidden;
-  transform: translateY(8px);
+  transform: translateY(14px);
   opacity: 0;
 }
 
 .card::before {
   content: "";
   position: absolute;
-  inset: -40%;
+  inset: -35%;
   background:
-    radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.1), transparent 60%),
-    radial-gradient(circle at 100% 100%, rgba(34, 197, 94, 0.08), transparent 55%);
+    radial-gradient(circle at 0 0, rgba(56, 189, 248, 0.16), transparent 60%),
+    radial-gradient(circle at 100% 100%, rgba(34, 197, 94, 0.16), transparent 55%);
   opacity: 0;
   transition: opacity 0.3s ease-out;
   pointer-events: none;
-}
-
-.card h2 {
-  margin: 0 0 6px;
-  font-size: 1.1rem;
-}
-
-.card p {
-  margin: 0;
-  font-size: 0.9rem;
-  color: var(--text-muted);
 }
 
 .card:hover::before {
@@ -119,28 +177,78 @@ main {
 }
 
 .card:hover {
-  transform: translateY(-4px) scale(1.01);
-  border-color: rgba(56, 189, 248, 0.6);
-  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.95);
+  transform: translateY(-4px) scale(1.015);
+  border-color: rgba(56, 189, 248, 0.7);
+  box-shadow: 0 24px 55px rgba(15, 23, 42, 0.95);
 }
 
-/* BAGIAN FORM */
+.card:active {
+  transform: translateY(-1px) scale(0.997);
+}
+
+.card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  margin-bottom: 6px;
+  background: radial-gradient(circle at 30% 0, rgba(56, 189, 248, 0.3), rgba(15, 23, 42, 0.8));
+  border: 1px solid rgba(56, 189, 248, 0.7);
+}
+
+.card h2 {
+  margin: 0 0 4px;
+  font-size: 1.02rem;
+}
+
+.card p {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+/* BADGE KECIL DI CARD (OPSIONAL) */
+.card-meta {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 0.7rem;
+}
+
+.card-tag {
+  padding: 3px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  color: var(--text-muted);
+}
+
+/* BAGIAN FORM DI HALAMAN METODE */
 .form-section {
-  background: radial-gradient(circle at top left, #020617 0, #020617 60%, #020617 100%);
+  background: rgba(15, 23, 42, 0.96);
   padding: 18px 16px 18px;
-  border-radius: 16px;
+  border-radius: 18px;
   border: 1px solid var(--border-soft);
-  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.85);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.95);
   transform: translateY(10px);
   opacity: 0;
 }
 
 .form-section h2 {
   margin-top: 0;
-  margin-bottom: 10px;
-  font-size: 1.1rem;
+  margin-bottom: 8px;
+  font-size: 1.08rem;
 }
 
+.form-section p {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+}
+
+/* LABEL & INPUT */
 label {
   display: block;
   margin-top: 10px;
@@ -155,10 +263,10 @@ button {
   width: 100%;
   padding: 8px 10px;
   margin-top: 5px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid rgba(75, 85, 99, 0.9);
   font-size: 0.9rem;
-  background: #020617;
+  background: rgba(15, 23, 42, 0.95);
   color: var(--text-main);
 }
 
@@ -175,18 +283,19 @@ select:focus {
   box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.75);
 }
 
+/* BUTTON */
 button {
   cursor: pointer;
   margin-top: 14px;
   border: none;
-  background: radial-gradient(circle at top left, #22c55e, #06b6d4);
+  background: linear-gradient(135deg, #22c55e, #06b6d4);
   color: #0b1120;
   font-weight: 600;
   letter-spacing: 0.03em;
   position: relative;
   overflow: hidden;
   transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
-  box-shadow: 0 12px 35px rgba(34, 197, 94, 0.55);
+  box-shadow: 0 14px 32px rgba(34, 197, 94, 0.65);
 }
 
 button span {
@@ -198,9 +307,9 @@ button::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 0 0, rgba(255, 255, 255, 0.24), transparent 55%);
+  background: radial-gradient(circle at 8% 0, rgba(255, 255, 255, 0.24), transparent 55%);
   opacity: 0;
-  transition: opacity 0.2s ease-out, transform 0.2s ease-out;
+  transition: opacity 0.23s ease-out, transform 0.23s ease-out;
 }
 
 button:hover::before {
@@ -210,12 +319,12 @@ button:hover::before {
 
 button:hover {
   transform: translateY(-1px) scale(1.01);
-  box-shadow: 0 16px 38px rgba(34, 197, 94, 0.65);
+  box-shadow: 0 18px 40px rgba(34, 197, 94, 0.7);
 }
 
 button:active {
-  transform: translateY(0) scale(0.99);
-  box-shadow: 0 10px 28px rgba(34, 197, 94, 0.5);
+  transform: translateY(0) scale(0.985);
+  box-shadow: 0 10px 25px rgba(34, 197, 94, 0.55);
 }
 
 /* HASIL / REPORT */
@@ -224,11 +333,11 @@ button:active {
   padding: 12px 12px 10px;
   background: linear-gradient(
     135deg,
-    rgba(37, 99, 235, 0.14),
-    rgba(56, 189, 248, 0.08)
+    rgba(37, 99, 235, 0.18),
+    rgba(56, 189, 248, 0.09)
   );
-  border-radius: 12px;
-  border: 1px solid rgba(129, 140, 248, 0.6);
+  border-radius: 14px;
+  border: 1px solid rgba(129, 140, 248, 0.7);
   font-size: 0.9rem;
 }
 
@@ -244,17 +353,17 @@ button:active {
   margin-bottom: 12px;
   text-decoration: none;
   color: var(--accent);
-  font-size: 0.9rem;
-  padding: 4px 8px;
+  font-size: 0.86rem;
+  padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.5);
-  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.9);
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  box-shadow: 0 10px 26px rgba(15, 23, 42, 0.95);
 }
 
 .back-link:hover {
   background: rgba(15, 23, 42, 1);
-  border-color: rgba(56, 189, 248, 0.7);
+  border-color: rgba(56, 189, 248, 0.8);
 }
 
 /* TABEL */
@@ -262,7 +371,7 @@ table {
   width: 100%;
   border-collapse: collapse;
   margin-top: 10px;
-  font-size: 0.85rem;
+  font-size: 0.84rem;
 }
 
 th,
@@ -277,22 +386,22 @@ th {
 }
 
 tr:nth-child(even) td {
-  background: rgba(15, 23, 42, 0.85);
+  background: rgba(15, 23, 42, 0.9);
 }
 
 /* WRAPPER CHART */
 .chart-container {
   margin-top: 16px;
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(15, 23, 42, 0.96);
   padding: 12px;
-  border-radius: 14px;
+  border-radius: 16px;
   border: 1px solid rgba(55, 65, 81, 0.9);
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.8);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.9);
 }
 
 /* ANIMASI GENERIK */
 .slide-up {
-  animation: slideUp 0.5s ease-out forwards;
+  animation: slideUp 0.55s ease-out forwards;
 }
 
 @keyframes slideUp {
@@ -317,8 +426,17 @@ footer {
 
 /* RESPONSIVE */
 @media (max-width: 640px) {
+  header {
+    padding-inline: 14px;
+  }
+
+  .header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   header h1 {
-    font-size: 1.35rem;
+    font-size: 1.1rem;
   }
 
   main {
