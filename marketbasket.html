@@ -1,15 +1,15 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Market Basket Analysis - ERP Tools</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
 <header>
   <h1>Market Basket Analysis</h1>
-  <p>Analisis pola pembelian menggunakan support dan confidence (2-itemset).</p>
+  <p>Analisis pola pembelian menggunakan support dan confidence (hingga 3-itemset).</p>
 </header>
 
 <main>
@@ -18,24 +18,24 @@
   <section class="form-section">
     <h2>Input Data Transaksi</h2>
     <p>
-      Format: satu transaksi per baris, dengan ID dan daftar item setelah tanda titik dua.<br>
-      Contoh:<br>
-      <code>T1: Roti,Susu,Telur</code><br>
-      <code>T2: Roti,Selai</code><br>
-      <code>T3: Susu,Telur</code><br>
+      Format: satu transaksi per baris, dengan ID dan daftar item setelah tanda titik dua.<br />
+      Contoh:<br />
+      <code>T1: Roti,Susu,Telur</code><br />
+      <code>T2: Roti,Selai</code><br />
+      <code>T3: Susu,Telur</code><br />
       <code>T4: Roti,Susu</code>
     </p>
 
     <label>Daftar transaksi
-      <textarea id="transactionsInput" rows="8"
+      <textarea id="transactionsInput" rows="10"
         placeholder="T1: Roti,Susu,Telur&#10;T2: Roti,Selai&#10;T3: Susu,Telur&#10;T4: Roti,Susu"></textarea>
     </label>
 
     <label>Minimum Support (0–1, misal 0.3 untuk 30%)</label>
-    <input type="number" id="minSupport" step="0.01" value="0.3">
+    <input type="number" id="minSupport" step="0.01" value="0.3" />
 
     <label>Minimum Confidence (0–1, misal 0.6 untuk 60%)</label>
-    <input type="number" id="minConfidence" step="0.01" value="0.6">
+    <input type="number" id="minConfidence" step="0.01" value="0.6" />
 
     <button onclick="runMBA()"><span>Proses Market Basket</span></button>
 
@@ -50,7 +50,7 @@
 <script>
 let mbaChart = null;
 
-// Fungsi bantu: parse transaksi format "T1: A,B,C"
+// Parse transaksi format "T1: A,B,C"
 function parseTransactions(raw) {
   const lines = raw.split('\n').map(l => l.trim()).filter(l => l);
   const transactions = [];
@@ -84,7 +84,7 @@ function parseTransactions(raw) {
   return { transactions, ids };
 }
 
-// Fungsi bantu: buat key pasangan item secara konsisten (A & B, alfabetis)
+// Key pasangan item konsisten (A & B, alfabetis)
 function pairKey(a, b) {
   return a < b ? a + ' & ' + b : b + ' & ' + a;
 }
@@ -120,12 +120,13 @@ function runMBA() {
   const ids = parsed.ids;
   const totalTrans = transactions.length;
 
-  // Hitung frekuensi 1-itemset dan 2-itemset
-  const itemCount = {};  // { item: count }
-  const pairCount = {};  // { "A & B": count }
+  // =========================
+  // HITUNG 1-ITEMSET & 2-ITEMSET
+  // =========================
+  const itemCount = {}; // { item: count }
+  const pairCount = {}; // { "A & B": count }
 
   transactions.forEach(tr => {
-    // gunakan Set agar item yang sama di 1 transaksi tidak dihitung dobel
     const uniqueItems = Array.from(new Set(tr));
 
     // 1-itemset
@@ -150,27 +151,59 @@ function runMBA() {
     return;
   }
 
-  // Hitung support item
+  // Support item
   const itemSupport = {};
   items.forEach(it => {
     itemSupport[it] = itemCount[it] / totalTrans;
   });
 
-  // Hitung support pasangan
+  // Support pasangan
   const pairs = Object.keys(pairCount);
   const pairSupport = {};
   pairs.forEach(pk => {
     pairSupport[pk] = pairCount[pk] / totalTrans;
   });
 
-  // Bentuk rules dari pasangan: A->B dan B->A
+  // =========================
+  // HITUNG 3-ITEMSET
+  // =========================
+  const tripleCount = {}; // { "A & B & C": count }
+
+  transactions.forEach(tr => {
+    const uniqueItems = Array.from(new Set(tr));
+    if (uniqueItems.length < 3) return;
+
+    for (let i = 0; i < uniqueItems.length; i++) {
+      for (let j = i + 1; j < uniqueItems.length; j++) {
+        for (let k = j + 1; k < uniqueItems.length; k++) {
+          const triple = [uniqueItems[i], uniqueItems[j], uniqueItems[k]].sort();
+          const key = triple.join(' & ');
+          if (!tripleCount[key]) tripleCount[key] = 0;
+          tripleCount[key]++;
+        }
+      }
+    }
+  });
+
+  const tripleSupport = {};
+  Object.keys(tripleCount).forEach(key => {
+    tripleSupport[key] = tripleCount[key] / totalTrans;
+  });
+
+  const frequentTripleItemsets = Object.keys(tripleSupport)
+    .filter(key => tripleSupport[key] >= minSup)
+    .sort();
+
+  // =========================
+  // RULES dari 2-itemset (A→B dan B→A)
+  // =========================
   const rules = [];
   pairs.forEach(pk => {
     const parts = pk.split(' & ');
     const A = parts[0];
     const B = parts[1];
-    const supAB = pairSupport[pk];
 
+    const supAB = pairSupport[pk];
     const supA = itemSupport[A];
     const supB = itemSupport[B];
 
@@ -178,32 +211,22 @@ function runMBA() {
     const confBtoA = supB > 0 ? supAB / supB : 0;
 
     if (supAB >= minSup && confAtoB >= minConf) {
-      rules.push({
-        from: A,
-        to: B,
-        support: supAB,
-        confidence: confAtoB
-      });
+      rules.push({ from: A, to: B, support: supAB, confidence: confAtoB });
     }
     if (supAB >= minSup && confBtoA >= minConf) {
-      rules.push({
-        from: B,
-        to: A,
-        support: supAB,
-        confidence: confBtoA
-      });
+      rules.push({ from: B, to: A, support: supAB, confidence: confBtoA });
     }
   });
 
   // Urutkan rules: confidence desc, support desc
   rules.sort((r1, r2) => {
-    if (r2.confidence !== r1.confidence) {
-      return r2.confidence - r1.confidence;
-    }
+    if (r2.confidence !== r1.confidence) return r2.confidence - r1.confidence;
     return r2.support - r1.support;
   });
 
-  // ====== BANGUN REPORT HTML ======
+  // =========================
+  // BANGUN REPORT HTML
+  // =========================
 
   // 1. Tabel transaksi
   let tableTrans = '<h3>1. Data Transaksi</h3>';
@@ -216,7 +239,7 @@ function runMBA() {
   // 2. Frequent 1-itemset
   let tableF1 = '<h3>2. Frequent 1-Itemset</h3>';
   tableF1 += '<table><tr><th>Item</th><th>Frekuensi</th><th>Support</th></tr>';
-  items.sort().forEach(it => {
+  items.slice().sort().forEach(it => {
     tableF1 += '<tr>' +
       '<td>' + it + '</td>' +
       '<td>' + itemCount[it] + '</td>' +
@@ -231,7 +254,7 @@ function runMBA() {
     tableF2 += '<p>Tidak ada pasangan item yang terbentuk dari data transaksi.</p>';
   } else {
     tableF2 += '<table><tr><th>Itemset</th><th>Frekuensi</th><th>Support</th></tr>';
-    pairs.sort().forEach(pk => {
+    pairs.slice().sort().forEach(pk => {
       tableF2 += '<tr>' +
         '<td>{' + pk + '}</td>' +
         '<td>' + pairCount[pk] + '</td>' +
@@ -241,8 +264,24 @@ function runMBA() {
     tableF2 += '</table>';
   }
 
-  // 4. Contoh perhitungan support & confidence untuk 1 rule terbaik (kalau ada)
-  let exampleCalc = '<h3>4. Contoh Perhitungan Support & Confidence</h3>';
+  // 4. Frequent 3-itemset
+  let tableF3 = '<h3>4. Frequent 3-Itemset (Min Support)</h3>';
+  if (frequentTripleItemsets.length === 0) {
+    tableF3 += '<p>Tidak ada 3-itemset yang memenuhi minimum support.</p>';
+  } else {
+    tableF3 += '<table><tr><th>Itemset</th><th>Frekuensi</th><th>Support</th></tr>';
+    frequentTripleItemsets.forEach(key => {
+      tableF3 += '<tr>' +
+        '<td>{' + key + '}</td>' +
+        '<td>' + tripleCount[key] + '</td>' +
+        '<td>' + tripleSupport[key].toFixed(4) + '</td>' +
+        '</tr>';
+    });
+    tableF3 += '</table>';
+  }
+
+  // 5. Contoh perhitungan support & confidence untuk rule terbaik
+  let exampleCalc = '<h3>5. Contoh Perhitungan Support & Confidence</h3>';
   if (rules.length === 0) {
     exampleCalc += '<p>Tidak ada aturan asosiasi yang memenuhi batas minimum support dan confidence.</p>';
   } else {
@@ -250,22 +289,21 @@ function runMBA() {
     const A = bestRule.from;
     const B = bestRule.to;
     const keyAB = pairKey(A, B);
+
     const freqA = itemCount[A];
     const freqAB = pairCount[keyAB];
+
     const supA = itemSupport[A];
     const supAB = pairSupport[keyAB];
     const conf = bestRule.confidence;
 
-    exampleCalc += '<p>Contoh untuk aturan terbaik: <strong>' +
-      A + ' &rarr; ' + B + '</strong></p>';
+    exampleCalc += '<p>Contoh untuk aturan terbaik: <strong>' + A + ' &rarr; ' + B + '</strong></p>';
     exampleCalc += '<p><strong>Langkah 1 – Hitung Support(' + A + ')</strong><br>' +
-      'Support(' + A + ') = jumlah transaksi yang mengandung ' + A +
-      ' / total transaksi = ' + freqA + ' / ' + totalTrans +
+      'Support(' + A + ') = ' + freqA + ' / ' + totalTrans +
       ' = <strong>' + supA.toFixed(4) + '</strong></p>';
 
     exampleCalc += '<p><strong>Langkah 2 – Hitung Support({' + A + ',' + B + '})</strong><br>' +
-      'Support({' + A + ',' + B + '}) = jumlah transaksi yang mengandung keduanya / total transaksi = ' +
-      freqAB + ' / ' + totalTrans +
+      'Support({' + A + ',' + B + '}) = ' + freqAB + ' / ' + totalTrans +
       ' = <strong>' + supAB.toFixed(4) + '</strong></p>';
 
     exampleCalc += '<p><strong>Langkah 3 – Hitung Confidence(' + A + ' &rarr; ' + B + ')</strong><br>' +
@@ -274,8 +312,8 @@ function runMBA() {
       ' = <strong>' + conf.toFixed(4) + '</strong></p>';
   }
 
-  // 5. Tabel aturan asosiasi
-  let tableRules = '<h3>5. Aturan Asosiasi (Memenuhi Min Support & Min Confidence)</h3>';
+  // 6. Tabel aturan asosiasi
+  let tableRules = '<h3>6. Aturan Asosiasi (Memenuhi Min Support & Min Confidence)</h3>';
   if (rules.length === 0) {
     tableRules += '<p>Tidak ada aturan yang lolos threshold support dan confidence.</p>';
   } else {
@@ -290,22 +328,36 @@ function runMBA() {
     tableRules += '</table>';
   }
 
-  // 6. Kesimpulan
-  let conclusion = '<h3>6. Laporan / Kesimpulan</h3>';
-  if (rules.length === 0) {
+  // 7. Kesimpulan
+  let conclusion = '<h3>7. Laporan / Kesimpulan</h3>';
+  if (rules.length === 0 && frequentTripleItemsets.length === 0) {
     conclusion += '<p>Dengan minimum support = ' + minSup +
       ' dan minimum confidence = ' + minConf +
-      ', tidak ditemukan aturan asosiasi yang kuat dari data transaksi yang diberikan.</p>';
+      ', tidak ditemukan aturan asosiasi dan 3-itemset yang kuat dari data transaksi yang diberikan.</p>';
   } else {
-    const bestRule = rules[0];
-    conclusion += '<p>Dengan minimum support = ' + minSup +
-      ' dan minimum confidence = ' + minConf +
-      ', diperoleh ' + rules.length +
-      ' aturan asosiasi yang valid. Aturan dengan confidence tertinggi adalah:<br>' +
-      '<strong>' + bestRule.from + ' &rarr; ' + bestRule.to +
-      '</strong> dengan support <strong>' + bestRule.support.toFixed(4) +
-      '</strong> dan confidence <strong>' + bestRule.confidence.toFixed(4) +
-      '</strong>.<br>Aturan ini dapat dijadikan acuan untuk strategi penempatan produk atau promosi bundling di toko.</p>';
+    let extra = '';
+    if (frequentTripleItemsets.length > 0) {
+      extra += ' Selain itu, terdapat ' + frequentTripleItemsets.length +
+        ' kombinasi 3-itemset yang memenuhi minimum support.';
+    }
+
+    if (rules.length > 0) {
+      const bestRule = rules[0];
+      conclusion += '<p>Dengan minimum support = ' + minSup +
+        ' dan minimum confidence = ' + minConf +
+        ', diperoleh <strong>' + rules.length + '</strong> aturan asosiasi yang valid. ' +
+        'Aturan dengan confidence tertinggi adalah: <br>' +
+        '<strong>' + bestRule.from + ' &rarr; ' + bestRule.to + '</strong> ' +
+        '(support <strong>' + bestRule.support.toFixed(4) + '</strong>, confidence <strong>' +
+        bestRule.confidence.toFixed(4) + '</strong>). ' +
+        'Aturan ini dapat dijadikan acuan strategi penempatan produk atau promosi bundling.' +
+        extra + '</p>';
+    } else {
+      conclusion += '<p>Dengan minimum support = ' + minSup +
+        ' dan minimum confidence = ' + minConf +
+        ', tidak ditemukan aturan asosiasi yang lolos. Namun, analisis 3-itemset menghasilkan ' +
+        '<strong>' + frequentTripleItemsets.length + '</strong> kombinasi yang memenuhi minimum support.</p>';
+    }
   }
 
   const resDiv = document.getElementById('result');
@@ -314,13 +366,17 @@ function runMBA() {
     tableTrans +
     tableF1 +
     tableF2 +
+    tableF3 +
     exampleCalc +
     tableRules +
     conclusion;
+
   resDiv.style.display = 'block';
 
-  // ====== GRAFIK: support item tunggal ======
-  const labels = items.sort();
+  // =========================
+  // GRAFIK: Support item tunggal
+  // =========================
+  const labels = items.slice().sort();
   const supportValues = labels.map(it => itemSupport[it]);
 
   if (mbaChart) mbaChart.destroy();
@@ -343,7 +399,7 @@ function runMBA() {
   });
 }
 
-// ANIMASI GLOBAL (sama gaya halaman lain)
+// Animasi global (sama gaya halaman lain)
 document.addEventListener("DOMContentLoaded", () => {
   document.body.classList.add("page-loaded");
 
@@ -384,7 +440,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   });
 });
-
 </script>
 </body>
 </html>
